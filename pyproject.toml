@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "rock-onyx-api"
+version = "0.1.0"
+description = ""
+authors = ["baonguyen1904 <bao.nlq94@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.104.1"
+gspread = "^5.12.0"
+oauth2client = "^4.1.3"
+pydantic-settings = "^2.1.0"
+pandas = "^2.1.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

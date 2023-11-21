@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Update Daily Performance",
+            "type": "python",
+            "request": "launch",
+            "module": "bg_tasks.update_performance_daily",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: API",
+            "type": "python",
+            "request": "launch",
+            "module": "main",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        }
+    ]
+}
