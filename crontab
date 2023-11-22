@@ -1,0 +1,1 @@
+55 23 * * * cd /app && python -m bg_tasks.update_performance_daily > /app-logs/update_performance_daily.log

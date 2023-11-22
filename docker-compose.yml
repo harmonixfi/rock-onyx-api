@@ -1,0 +1,16 @@
+version: "3.3"
+services:
+  crontab:
+    image: 'crontab_runner:${TAG-latest}'
+    env_file:
+      - .env
+    environment:
+      - SERVER_NAME=${SERVER_NAME?Variable not set}
+      - SERVER_HOST=${SERVER_HOST?Variable not set}
+      # Allow explicit env var override for tests
+      - CRONTAB="cat crontab"
+      - TZ="UTC"
+    build:
+      dockerfile: crontab.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}

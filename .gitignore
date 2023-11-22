@@ -1,1 +1,39 @@
 .venv/
+# Byte-compiled / optimized Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Caches and logs
+*.cache/
+*.log
+
+# Environment variables file
+.env
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+
+# Jupyter Notebook-specific
+.ipynb_checkpoints/
+
+# macOS-specific
+.DS_Store
+
+# Visual Studio Code-specific
+.vscode/
+
+# PyCharm-specific
+.idea/
+
+# User-specific files and directories
+*.swp
+*.swo
+*.pyc
