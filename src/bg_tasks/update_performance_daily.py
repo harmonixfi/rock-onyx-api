@@ -15,8 +15,9 @@ def parse_currency_to_float(series: pd.Series):
 
 # Step 2: Fetch Data from Google Sheets
 def fetch_data(client, sheet_name):
-    sheet = client.open(sheet_name).get_worksheet(1)
-    data = sheet.get_all_records()
+    sheet = client.open(sheet_name)
+    ws = sheet.get_worksheet(1)
+    data = ws.get_all_records()
     df = pd.DataFrame(data)
     df["Vault Value"] = df["Vault Value"].astype(float)
     df["Cap Gain"] = df["Cap Gain"].astype(float)
@@ -25,7 +26,7 @@ def fetch_data(client, sheet_name):
     df["Benchmark %"] = df["Benchmark %"].astype(float)
 
     df[["Benchmark", "Benchmark %"]] = df[["Benchmark", "Benchmark %"]].astype("float")
-    return df
+    return sheet, df
 
 
 # Step 4: Calculate Performance Metrics
@@ -65,10 +66,26 @@ def calculate_performance(sheet, df):
     df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
 
     # Annualized return of df['Vault Value']
-    days = (datetime.utcnow() - datetime.strptime(df["Date"][0], "%Y-%m-%d")).days
-    df["APR"] = (
-        (df["Vault Value"][len(df) - 1] / df["Vault Value"][0]) ** (365 / days) - 1
-    ) * 100
+    lido_apr = float(spot_ws.acell("L7").value)
+    radiant_apr = float(spot_ws.acell("R7").value)
+
+    # calculate apr for staking
+    spot_eth_val = float(spot_val_cell)
+    reward1 = lido_apr * spot_eth_val
+    reward2 = radiant_apr * spot_eth_val
+    stake_apr = (reward1 + reward2) / spot_eth_val
+
+    # calculate APR for options premium
+    premium_values = options_ws.batch_get(("D2:D9",))[0]
+    position_sizes = options_ws.batch_get(("E2:E9",))[0]
+
+    total_premium = 0
+    for premium, size in zip(premium_values, position_sizes):
+        total_premium += float(size[0]) * float(premium[0])
+    premium_apr = (total_premium / option_eth) * 52
+
+    portfolio_apr = (stake_apr * 0.8) + (premium_apr * 0.2)
+    df.loc[len(df) - 1, "APR"] = portfolio_apr * 100
 
     return df
 
