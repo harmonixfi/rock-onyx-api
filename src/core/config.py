@@ -31,6 +31,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     PROJECT_NAME: str
+    ETHER_MAINNET_INFURA_URL: str
 
     class Config:
         case_sensitive = True
