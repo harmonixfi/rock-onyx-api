@@ -63,6 +63,7 @@ async def get_vault_performance():
 
     # Prepare data for JSON response
     performance_data = {
+        "date": df["Date"].tolist(),
         "cum_return": df["Cum Return"].tolist(),
         "benchmark_ret": df["Benchmark %"].tolist(),
     }

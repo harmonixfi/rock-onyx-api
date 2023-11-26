@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 
 from services.gsheet import authenticate_gspread
-from services.market_data import get_price
+from services.market_data import get_price, get_klines
 
 
 def parse_currency_to_float(series: pd.Series):
@@ -29,9 +29,30 @@ def fetch_data(client, sheet_name):
     return sheet, df
 
 
+def calculate_options_apr(sheet):
+    options_ws = sheet.get_worksheet(3)
+    data = options_ws.get_all_records()
+    data = pd.DataFrame(data)
+
+    capital_employed = float(options_ws.acell("I2").value)
+
+    # Calculate total premiums received
+    data["Expiration Date"] = pd.to_datetime(data["Expiration Date"])
+    data["Annualized Premium"] = (data["Premium"] * data["Quantity"]) * 26
+    total_annualized_premiums = data["Annualized Premium"].sum()
+
+    # Calculate APR
+    apr = total_annualized_premiums / capital_employed
+    return apr
+
+
 # Step 4: Calculate Performance Metrics
 def calculate_performance(sheet, df):
     current_price = get_price("ETHUSDT")
+
+    # d = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
+    # candles = get_klines("ETHUSDT", end_time=(d + timedelta(days=2)), limit=1)
+    # current_price = float(candles[0][4])
 
     spot_ws = sheet.get_worksheet(2)
     options_ws = sheet.get_worksheet(3)
@@ -44,12 +65,20 @@ def calculate_performance(sheet, df):
     option_eth_cell = options_ws.acell("I2").value
 
     spot_val = float(spot_val_cell) * current_price
+    spot_eth_val = float(spot_val_cell)
     cash = float(cash_cell)
-    option_eth = float(option_eth_cell)
+    option_usd = float(option_eth_cell)
+
+    radiant_eth_val = float(spot_ws.acell("P8").value)
+
+    # Annualized return of df['Vault Value']
+    lido_apr = float(spot_ws.acell("L7").value)
+    radiant_apr = float(spot_ws.acell("R7").value)
 
     # Calculations
     df.loc[len(df)] = [
         datetime.utcnow().strftime("%Y-%m-%d"),
+        # (d + timedelta(days=1)).strftime("%Y-%m-%d"),
         None,
         None,
         None,
@@ -57,7 +86,15 @@ def calculate_performance(sheet, df):
         None,
         None,
     ]  # Add new row for current date
-    df.loc[len(df) - 1, "Vault Value"] = spot_val + cash + option_eth
+
+    # Calculate daily reward from Lido and radiant
+    lido_daily_reward = spot_eth_val * (lido_apr / 365) * len(df)
+    radiant_daily_reward = radiant_eth_val * (radiant_apr / 365) * len(df)
+    staked_reward_usd = (lido_daily_reward + radiant_daily_reward) * current_price
+
+    df.loc[len(df) - 1, "Vault Value"] = (
+        spot_val + cash + option_usd + staked_reward_usd
+    )
     df["Cap Gain"] = df["Vault Value"] - df["Vault Value"].shift()
     df.loc[len(df) - 1, "Benchmark"] = current_price
 
@@ -65,24 +102,12 @@ def calculate_performance(sheet, df):
     df["Cum Return"] = ((df["Vault Value"] / df["Vault Value"].iloc[0]) - 1) * 100
     df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
 
-    # Annualized return of df['Vault Value']
-    lido_apr = float(spot_ws.acell("L7").value)
-    radiant_apr = float(spot_ws.acell("R7").value)
-
     # calculate apr for staking
-    spot_eth_val = float(spot_val_cell)
     reward1 = lido_apr * spot_eth_val
     reward2 = radiant_apr * spot_eth_val
     stake_apr = (reward1 + reward2) / spot_eth_val
 
-    # calculate APR for options premium
-    premium_values = options_ws.batch_get(("D2:D9",))[0]
-    position_sizes = options_ws.batch_get(("E2:E9",))[0]
-
-    total_premium = 0
-    for premium, size in zip(premium_values, position_sizes):
-        total_premium += float(size[0]) * float(premium[0])
-    premium_apr = (total_premium / option_eth) * 52
+    premium_apr = calculate_options_apr(sheet)
 
     portfolio_apr = (stake_apr * 0.8) + (premium_apr * 0.2)
     df.loc[len(df) - 1, "APR"] = portfolio_apr * 100
