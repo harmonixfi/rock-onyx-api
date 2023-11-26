@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     ETHER_MAINNET_INFURA_URL: str
+    WALLET_ADDRESS: str
 
     class Config:
         case_sensitive = True

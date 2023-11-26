@@ -88,9 +88,8 @@ def calculate_performance(sheet, df):
     ]  # Add new row for current date
 
     # Calculate daily reward from Lido and radiant
-    lido_daily_reward = spot_eth_val * (lido_apr / 365) * len(df)
     radiant_daily_reward = radiant_eth_val * (radiant_apr / 365) * len(df)
-    staked_reward_usd = (lido_daily_reward + radiant_daily_reward) * current_price
+    staked_reward_usd = (radiant_daily_reward) * current_price
 
     df.loc[len(df) - 1, "Vault Value"] = (
         spot_val + cash + option_usd + staked_reward_usd

@@ -13,6 +13,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: Update Lido reward",
+            "type": "python",
+            "request": "launch",
+            "module": "bg_tasks.update_lido_reward",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: API",
             "type": "python",
             "request": "launch",
