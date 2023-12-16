@@ -5,6 +5,20 @@ import pandas as pd
 
 from services.gsheet import authenticate_gspread
 from services.market_data import get_price, get_klines
+from web3 import Web3
+from core.abi_reader import read_abi
+from core.config import settings
+from services.uniswap_data import get_uniswap_quote
+
+# Connect to the Ethereum network
+w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+token_abi = read_abi("ERC20")
+
+
+def balance_of(wallet_address, token_address):
+    token_contract = w3.eth.contract(address=token_address, abi=token_abi)
+    token_balance = token_contract.functions.balanceOf(wallet_address).call()
+    return token_balance
 
 
 def parse_currency_to_float(series: pd.Series):
@@ -46,40 +60,149 @@ def calculate_options_apr(sheet):
     return apr
 
 
+def get_wallet_balances():
+    # Call the getUserAccountData function
+    wallet_address = Web3.to_checksum_address(settings.WALLET_ADDRESS)
+    # Get ETH balance
+    eth_balance = w3.eth.get_balance(wallet_address)
+    eth_balance = w3.from_wei(eth_balance, "ether")
+
+    wstETH_balance = balance_of(wallet_address, settings.WSTETH_ADDRESS)
+    wstETH_balance = w3.from_wei(wstETH_balance, "ether")
+
+    usdc_balance = balance_of(wallet_address, settings.USDC_ADDRESS) / 10**6
+
+    usdce_balance = balance_of(wallet_address, settings.USDCE_ADDRESS) / 10**6
+
+    return {
+        "ETH": eth_balance,
+        "wstETH": wstETH_balance,
+        "USDC": usdc_balance,
+        "USDC.e": usdce_balance,
+    }
+
+
+def get_price_per_share_history(sheet):
+    ws = sheet.get_worksheet(5)
+    data = ws.get_all_records()
+    df = pd.DataFrame(data)
+    df["Date"] = pd.to_datetime(df["Date"])
+    return df
+
+
+def update_price_per_share_sheet(sheet, row_num, values):
+    ws = sheet.get_worksheet(5)
+    ws.update(range_name=f"A{row_num}:D{row_num}", values=[values])
+
+
+def calculate_roi(after: float, before: float, days: int) -> float:
+    # calculate our annualized return for a vault
+    pps_delta = (after - before) / (before or 1)
+    annualized_roi = (1 + pps_delta) ** (365.2425 / days) - 1
+    return annualized_roi
+
+
+def get_before_price_per_shares(df, days=30) -> pd.Series:
+    today = datetime.utcnow()
+    # Calculate the date 30 days ago
+    previous_month = today - timedelta(days=days)
+
+    # Check if the date is in the DataFrame, if not, get the first value
+    if previous_month in df["Date"].values:
+        result = df[df["Date"] == previous_month]
+    else:
+        result = df.iloc[0]
+
+    return result["PricePerShare"]
+
+
 # Step 4: Calculate Performance Metrics
 def calculate_performance(sheet, df):
     current_price = get_price("ETHUSDT")
+    wsteth_to_eth = get_uniswap_quote(settings.WSTETH_ADDRESS, 1, "ETH")
+    usdce_to_usdc = get_uniswap_quote(settings.USDCE_ADDRESS, 1, "USDC")
+    wallet = get_wallet_balances()
 
-    # d = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
-    # candles = get_klines("ETHUSDT", end_time=(d + timedelta(days=2)), limit=1)
+    # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 
     spot_ws = sheet.get_worksheet(2)
     options_ws = sheet.get_worksheet(3)
+    camelot_ws = sheet.get_worksheet(4)
+    price_per_share_df = get_price_per_share_history(sheet)
+    total_shares = price_per_share_df["TotalShares"].iloc[-1]
 
-    # Fetch data from specific cells
-    spot_val_cell = spot_ws.acell("D7").value
-    if "ETH" in spot_val_cell:
-        spot_val_cell = spot_val_cell.replace("ETH", "")
-    cash_cell = spot_ws.acell("D8").value
-    option_eth_cell = options_ws.acell("I2").value
+    usdc_reward = float(camelot_ws.acell("F2").value)
+    usdce_reward = float(camelot_ws.acell("G2").value)
+    wstETH_reward = float(camelot_ws.acell("F3").value)
+    eth_reward = float(camelot_ws.acell("G3").value)
 
-    spot_val = float(spot_val_cell) * current_price
-    spot_eth_val = float(spot_val_cell)
-    cash = float(cash_cell)
-    option_usd = float(option_eth_cell)
+    camelot_eth = float(camelot_ws.acell("D3").value)
+    camelot_wsteth = float(camelot_ws.acell("E3").value)
+    total_camelot_eth = (
+        camelot_eth
+        + camelot_wsteth * wsteth_to_eth.dest_amount
+        + wstETH_reward * wsteth_to_eth.dest_amount
+        + eth_reward
+    )
 
-    radiant_eth_val = float(spot_ws.acell("P8").value)
+    usdc_amount = float(camelot_ws.acell("D2").value)
+    usdce_amount = float(camelot_ws.acell("E2").value)
+    total_camelot_cash = (
+        usdc_amount
+        + (usdce_amount + usdce_reward) * usdce_to_usdc.dest_amount
+        + usdc_reward
+    )
 
-    # Annualized return of df['Vault Value']
-    lido_apr = float(spot_ws.acell("L7").value)
-    radiant_apr = float(spot_ws.acell("R7").value)
+    total_spot_eth = (
+        float(wallet["ETH"])
+        + float(wallet["wstETH"]) * wsteth_to_eth.dest_amount
+        + total_camelot_eth
+    )
+    total_spot_eth_value = total_spot_eth * current_price
+    total_spot_cash = (
+        total_camelot_cash
+        + wallet["USDC"]
+        + wallet["USDC.e"] * usdce_to_usdc.dest_amount
+    )
+
+    # OPTIONS
+    option_cash_cell = float(options_ws.acell("I2").value)
+
+    # Calculate latest price per share
+    total_balance = total_spot_cash + total_spot_eth_value + option_cash_cell
+    current_price_per_share = total_balance / total_shares
+    update_price_per_share_sheet(
+        sheet,
+        row_num=int(len(price_per_share_df) + 2),  # include header
+        values=[
+            today,
+            float(total_balance),
+            int(total_shares),
+            float(current_price_per_share),
+        ],
+    )
+
+    # Calculate Monthly APY
+    month_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=30)
+    monthly_apy = calculate_roi(
+        current_price_per_share, month_ago_price_per_share, days=30
+    )
+    apys = [monthly_apy]
+    net_apy = next((value for value in apys if value != 0), 0)
+
+    # assume we are compounding every week
+    compounding = 52
+
+    # calculate our APR after fees
+    apr = compounding * ((net_apy + 1) ** (1 / compounding)) - compounding
 
     # Calculations
     df.loc[len(df)] = [
-        datetime.utcnow().strftime("%Y-%m-%d"),
-        # (d + timedelta(days=1)).strftime("%Y-%m-%d"),
-        None,
+        today,
+        total_balance,
         None,
         None,
         None,
@@ -87,29 +210,12 @@ def calculate_performance(sheet, df):
         None,
     ]  # Add new row for current date
 
-    # Calculate daily reward from Lido and radiant
-    radiant_daily_reward = radiant_eth_val * (radiant_apr / 365) * len(df)
-    staked_reward_usd = (radiant_daily_reward) * current_price
-
-    df.loc[len(df) - 1, "Vault Value"] = (
-        spot_val + cash + option_usd + staked_reward_usd
-    )
     df["Cap Gain"] = df["Vault Value"] - df["Vault Value"].shift()
     df.loc[len(df) - 1, "Benchmark"] = current_price
-
     # Calculate Cumulative Returns
     df["Cum Return"] = ((df["Vault Value"] / df["Vault Value"].iloc[0]) - 1) * 100
     df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
-
-    # calculate apr for staking
-    reward1 = lido_apr * spot_eth_val
-    reward2 = radiant_apr * spot_eth_val
-    stake_apr = (reward1 + reward2) / spot_eth_val
-
-    premium_apr = calculate_options_apr(sheet)
-
-    portfolio_apr = (stake_apr * 0.8) + (premium_apr * 0.2)
-    df.loc[len(df) - 1, "APR"] = portfolio_apr * 100
+    df.loc[len(df) - 1, "APR"] = apr * 100
 
     return df
 
