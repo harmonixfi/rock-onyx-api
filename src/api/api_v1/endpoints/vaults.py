@@ -36,6 +36,8 @@ async def get_vault_info():
     df = fetch_data(client, "Rock Onyx Fund")
 
     apr = df["APR"].iloc[-1]
+    monthly_apy = df["APY_1M"].iloc[-1]
+    weekly_apy = df["APY_1W"].iloc[-1]
     max_drawdown = calculate_max_drawdown(
         df["Cum Return"]
     )  # Convert back to percentage
@@ -45,10 +47,12 @@ async def get_vault_info():
 
     return {
         "apr": apr,
+        "monthly_apy": monthly_apy,
+        "weekly_apy": weekly_apy,
         "max_drawdown": max_drawdown,
-        "total_deposit": 3,
+        "total_deposit": 5825,
         "vault_capacity": vault_capacity,
-        "vault_currency": "ETH",
+        "vault_currency": "USDC",
     }
 
 

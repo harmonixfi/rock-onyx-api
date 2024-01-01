@@ -105,11 +105,18 @@ def calculate_roi(after: float, before: float, days: int) -> float:
 def get_before_price_per_shares(df, days=30) -> pd.Series:
     today = datetime.utcnow()
     # Calculate the date 30 days ago
-    previous_month = today - timedelta(days=days)
+    previous_month = (
+        (today - timedelta(days=days))
+        .replace(hour=0)
+        .replace(minute=0)
+        .replace(second=0)
+        .replace(microsecond=0)
+    )
 
     # Check if the date is in the DataFrame, if not, get the first value
-    if previous_month in df["Date"].values:
-        result = df[df["Date"] == previous_month]
+    row = df[df["Date"] == previous_month]
+    if len(row) > 0:
+        result = row.iloc[0]
     else:
         result = df.iloc[0]
 
@@ -184,13 +191,19 @@ def calculate_performance(sheet, df):
             float(current_price_per_share),
         ],
     )
+    current_price_per_share = 1.15
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=30)
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share, days=30
     )
-    apys = [monthly_apy]
+
+    week_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=7)
+    weekly_apy = calculate_roi(
+        current_price_per_share, week_ago_price_per_share, days=7
+    )
+    apys = [monthly_apy, weekly_apy]
     net_apy = next((value for value in apys if value != 0), 0)
 
     # assume we are compounding every week
@@ -208,6 +221,8 @@ def calculate_performance(sheet, df):
         None,
         None,
         None,
+        None,
+        None,
     ]  # Add new row for current date
 
     df["Cap Gain"] = df["Vault Value"] - df["Vault Value"].shift()
@@ -216,7 +231,8 @@ def calculate_performance(sheet, df):
     df["Cum Return"] = ((df["Vault Value"] / df["Vault Value"].iloc[0]) - 1) * 100
     df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
     df.loc[len(df) - 1, "APR"] = apr * 100
-
+    df.loc[len(df) - 1, "APY_1M"] = monthly_apy * 100
+    df.loc[len(df) - 1, "APY_1W"] = weekly_apy * 100
     return df
 
 
@@ -228,7 +244,7 @@ def update_performance_sheet(sheet, df):
         data.append(df[col].iloc[-1])
 
     row = len(df) + 1
-    performance_sheet.update(range_name=f"A{row}:G{row}", values=[data])
+    performance_sheet.update(range_name=f"A{row}:I{row}", values=[data])
 
 
 # Main Execution
