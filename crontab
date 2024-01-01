@@ -1,2 +1,2 @@
-55 23 * * * cd /app && python -m bg_tasks.update_performance_daily > /app-logs/update_performance_daily.log
-0 12 * * * cd /app && python -m bg_tasks.update_lido_reward > /app-logs/update_lido_reward.log
+# 55 23 * * * cd /app && python -m bg_tasks.update_performance_daily > /app-logs/update_performance_daily.log
+# 0 12 * * * cd /app && python -m bg_tasks.update_lido_reward > /app-logs/update_lido_reward.log
