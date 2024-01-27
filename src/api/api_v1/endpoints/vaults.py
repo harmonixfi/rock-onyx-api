@@ -46,11 +46,11 @@ async def get_vault_info():
     vault_capacity = 4_000_000 / current_price
 
     return {
-        "apr": apr,
-        "monthly_apy": monthly_apy,
-        "weekly_apy": weekly_apy,
-        "max_drawdown": max_drawdown,
-        "total_deposit": 5825,
+        "apr": float(apr),
+        "monthly_apy": float(monthly_apy),
+        "weekly_apy": float(weekly_apy),
+        "max_drawdown": float(max_drawdown) if not np.isnan(max_drawdown) else 0,
+        # "total_deposit": 5825,
         "vault_capacity": vault_capacity,
         "vault_currency": "USDC",
     }
