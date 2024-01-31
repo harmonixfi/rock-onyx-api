@@ -8,7 +8,7 @@
             "name": "Python: Update Daily Performance",
             "type": "python",
             "request": "launch",
-            "module": "bg_tasks.update_performance_daily",
+            "module": "bg_tasks.update_performance_weekly",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

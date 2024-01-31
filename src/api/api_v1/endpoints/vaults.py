@@ -1,11 +1,16 @@
+import json
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Path
 
 from services.gsheet import authenticate_gspread
 from services.market_data import get_price
 
 router = APIRouter()
+
+# Load vaults data from JSON file
+with open("data/vaults.json", "r") as vaults_file:
+    vaults_data = json.load(vaults_file)
 
 
 def fetch_data(client, sheet_name):
@@ -30,8 +35,12 @@ def calculate_max_drawdown(cum_returns):
     return max_drawdown
 
 
-@router.get("/vaults/7c5406ae-f72c-412a-9444-f5b83c78ee48")
-async def get_vault_info():
+@router.get("/vaults/{vault_id}")
+async def get_vault_info(vault_id: str):
+    vault_info = next((vault for vault in vaults_data if vault["id"] == vault_id), None)
+    if not vault_info:
+        return {"error": "Vault not found"}
+
     client = authenticate_gspread()
     df = fetch_data(client, "Rock Onyx Fund")
 
@@ -43,21 +52,24 @@ async def get_vault_info():
     )  # Convert back to percentage
 
     current_price = get_price("ETHUSDT")
-    vault_capacity = 4_000_000 / current_price
+    vault_capacity = vault_info["capacity"] / current_price
 
     return {
         "apr": float(apr),
         "monthly_apy": float(monthly_apy),
         "weekly_apy": float(weekly_apy),
         "max_drawdown": float(max_drawdown) if not np.isnan(max_drawdown) else 0,
-        # "total_deposit": 5825,
         "vault_capacity": vault_capacity,
         "vault_currency": "USDC",
     }
 
 
-@router.get("/vaults/7c5406ae-f72c-412a-9444-f5b83c78ee48/performance")
-async def get_vault_performance():
+@router.get("/vaults/{vault_id}/performance")
+async def get_vault_performance(vault_id: str):
+    vault_info = next((vault for vault in vaults_data if vault["id"] == vault_id), None)
+    if not vault_info:
+        return {"error": "Vault not found"}
+
     client = authenticate_gspread()
     df = fetch_data(client, "Rock Onyx Fund")
 
