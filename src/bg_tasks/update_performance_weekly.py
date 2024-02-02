@@ -200,7 +200,9 @@ def calculate_performance(sheet, df):
     df["Cap Gain"] = df["Vault Value"] - df["Vault Value"].shift()
     df.loc[len(df) - 1, "Benchmark"] = current_price
     # Calculate Cumulative Returns
-    df["Cum Return"] = ((df["Vault Value"] / df["Vault Value"].iloc[0]) - 1) * 100
+    df["Cum Return"] = (
+        (current_price_per_share / price_per_share_df["PricePerShare"].iloc[0]) - 1
+    ) * 100
     df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
     df.loc[len(df) - 1, "APR"] = apr * 100
     df.loc[len(df) - 1, "APY_1M"] = monthly_apy * 100
