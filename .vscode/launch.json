@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Update Daily Performance",
+            "name": "Python: Update Weekly Performance",
             "type": "python",
             "request": "launch",
             "module": "bg_tasks.update_performance_weekly",

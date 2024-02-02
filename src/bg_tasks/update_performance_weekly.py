@@ -15,7 +15,7 @@ from services.uniswap_data import get_uniswap_quote
 w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
 token_abi = read_abi("ERC20")
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
-rockOnyxUSDTVaultContract = web3.eth.contract(
+rockOnyxUSDTVaultContract = w3.eth.contract(
     address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
 )
 
@@ -131,13 +131,13 @@ def get_before_price_per_shares(df, days=30) -> pd.Series:
 def get_current_pps():
     pps = rockOnyxUSDTVaultContract.functions.pricePerShare().call()
 
-    return pps
+    return pps / 1e6
 
 
 def get_current_tvl():
-    pps = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+    tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
 
-    return pps
+    return tvl / 1e6
 
 
 # Step 4: Calculate Performance Metrics
