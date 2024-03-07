@@ -6,31 +6,15 @@
     "configurations": [
         {
             "name": "Python: Update Weekly Performance",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.update_performance_weekly",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "Python: Update Lido reward",
-            "type": "python",
-            "request": "launch",
-            "module": "bg_tasks.update_lido_reward",
-            "justMyCode": true,
-            "cwd": "${workspaceFolder}/src"
-        },
-        {
-            "name": "Python: Update Radiant reward",
-            "type": "python",
-            "request": "launch",
-            "module": "bg_tasks.update_radiant_reward",
-            "justMyCode": true,
-            "cwd": "${workspaceFolder}/src"
-        },
-        {
             "name": "Python: API",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "main",
             "justMyCode": true,
