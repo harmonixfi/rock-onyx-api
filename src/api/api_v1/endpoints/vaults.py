@@ -1,10 +1,12 @@
 import json
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, FastAPI, Path
+from fastapi import APIRouter, FastAPI, HTTPException, Path
+from sqlmodel import select
+from api.api_v1.deps import SessionDep
 
 from services.gsheet import authenticate_gspread
-from services.market_data import get_price
+from models import Vault
 
 router = APIRouter()
 
@@ -27,41 +29,24 @@ def fetch_data(client, sheet_name):
     return df
 
 
-def calculate_max_drawdown(cum_returns):
-    # Calculate the maximum drawdown in the cumulative return series
-    peak = cum_returns.cummax()
-    drawdown = (cum_returns - peak) / peak
-    max_drawdown = drawdown.min()
-    return max_drawdown
+@router.get("/vaults")
+async def get_all_vaults(session: SessionDep):
+    statement = select(Vault)
+    vaults = session.exec(statement).all()
+    return vaults
 
 
 @router.get("/vaults/{vault_id}")
 async def get_vault_info(vault_id: str):
-    vault_info = next((vault for vault in vaults_data if vault["id"] == vault_id), None)
-    if not vault_info:
-        return {"error": "Vault not found"}
+    vault = select(Vault).where(Vault.id == vault_id)
+    
+    if not vault:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
 
-    client = authenticate_gspread()
-    df = fetch_data(client, "Rock Onyx Fund")
-
-    apr = df["APR"].iloc[-1]
-    monthly_apy = df["APY_1M"].iloc[-1]
-    weekly_apy = df["APY_1W"].iloc[-1]
-    max_drawdown = calculate_max_drawdown(
-        df["Cum Return"]
-    )  # Convert back to percentage
-
-    current_price = get_price("ETHUSDT")
-    vault_capacity = vault_info["capacity"] / current_price
-
-    return {
-        "apr": float(apr),
-        "monthly_apy": float(monthly_apy),
-        "weekly_apy": float(weekly_apy),
-        "max_drawdown": float(max_drawdown) if not np.isnan(max_drawdown) else 0,
-        "vault_capacity": vault_capacity,
-        "vault_currency": "USDC",
-    }
+    return vault
 
 
 @router.get("/vaults/{vault_id}/performance")
