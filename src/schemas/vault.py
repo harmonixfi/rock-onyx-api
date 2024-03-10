@@ -1,15 +1,17 @@
+import uuid
 from pydantic import BaseModel, ConfigDict
 
 
 class VaultBase(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     apr: float = None
-    monthly_apy: float = None
-    weekly_apy: float = None
-    max_drawdown: float = None
-    vault_capacity: int = None
-    vault_currency: str = None
+    apr: float | None = None
+    monthly_apy: float | None = None
+    weekly_apy: float | None = None
+    max_drawdown: float | None = None
+    vault_capacity: int | None = None
+    vault_currency: str | None = None
 
 
 # Properties shared by models stored in DB

@@ -1,8 +1,10 @@
+import uuid
+
 import sqlmodel
 
 
 class VaultBase(sqlmodel.SQLModel):
-    id: int = sqlmodel.Field(default=None, primary_key=True)
+    id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
     apr: float | None = None
     monthly_apy: float | None = None

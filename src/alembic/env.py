@@ -33,7 +33,7 @@ def get_url():
     password = os.getenv("POSTGRES_PASSWORD", "")
     server = os.getenv("POSTGRES_SERVER", "db")
     db = os.getenv("POSTGRES_DB", "app")
-    print(password, server, db)
+    print(user, password, server, db)
     return f"postgresql+psycopg://{user}:{password}@{server}/{db}"
 
 

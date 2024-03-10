@@ -10,7 +10,6 @@ from sqlmodel import Session
 from core import security
 from core.config import settings
 from core.db import engine
-from models import TokenPayload, User
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
