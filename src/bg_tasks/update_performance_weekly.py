@@ -40,19 +40,30 @@ def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
     # Convert the list of PricePerShareHistory objects to a DataFrame
     pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
 
-    return pps_history_df
+    return pps_history_df[['datetime', 'price_per_share', 'vault_id']]
 
 
 def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
-    # Create a new PricePerShareHistory record
-    new_pps = PricePerShareHistory(
-        datetime=datetime.utcnow(),
-        price_per_share=current_price_per_share,
-        vault_id=vault_id,
-    )
+    today = datetime.now().date()
 
-    # Add the new record to the session and commit
-    session.add(new_pps)
+    # Check if a PricePerShareHistory record for today already exists
+    existing_pps = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id, PricePerShareHistory.datetime == today)
+    ).first()
+
+    if existing_pps:
+        # If a record for today already exists, update the price per share
+        existing_pps.price_per_share = current_price_per_share
+    else:
+        # If no record for today exists, create a new one
+        new_pps = PricePerShareHistory(
+            datetime=today, 
+            price_per_share=current_price_per_share, 
+            vault_id=vault_id
+        )
+        session.add(new_pps)
+
     session.commit()
 
 
@@ -63,25 +74,22 @@ def calculate_roi(after: float, before: float, days: int) -> float:
     return annualized_roi
 
 
-def get_before_price_per_shares(df, days=30) -> pd.Series:
-    today = datetime.utcnow()
-    # Calculate the date 30 days ago
-    previous_month = (
-        (today - timedelta(days=days))
-        .replace(hour=0)
-        .replace(minute=0)
-        .replace(second=0)
-        .replace(microsecond=0)
-    )
+def get_before_price_per_shares(vault_id: uuid.UUID, days: int):
+    target_date = datetime.now() - timedelta(days=days)
 
-    # Check if the date is in the DataFrame, if not, get the first value
-    row = df[df["Date"] == previous_month]
-    if len(row) > 0:
-        result = row.iloc[0]
-    else:
-        result = df.iloc[0]
+    # Get the PricePerShareHistory records before the target date and order them by datetime in descending order
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id, PricePerShareHistory.datetime <= target_date)
+        .order_by(PricePerShareHistory.datetime.desc())
+    ).all()
 
-    return result["PricePerShare"]
+    # If there are any records, return the price per share of the most recent one
+    if pps_history:
+        return pps_history[0].price_per_share
+
+    # If there are no records before the target date, return None
+    return 1
 
 
 def get_current_pps():
@@ -105,19 +113,18 @@ def calculate_performance(vault_id: uuid.UUID):
     # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 
-    price_per_share_df = get_price_per_share_history(vault_id)
+    # price_per_share_df = get_price_per_share_history(vault_id)
 
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
-    update_price_per_share(vault_id, current_price_per_share)
 
     # Calculate Monthly APY
-    month_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=30)
+    month_ago_price_per_share = get_before_price_per_shares(vault_id, days=30)
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share, days=30
     )
 
-    week_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=7)
+    week_ago_price_per_share = get_before_price_per_shares(vault_id, days=7)
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share, days=7
     )
@@ -134,10 +141,8 @@ def calculate_performance(vault_id: uuid.UUID):
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
 
-    first_performance = performance_history[0]
-
     benchmark = current_price
-    benchmark_percentage = ((benchmark / first_performance.benchmark) - 1) * 100
+    benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
     apy_1m = monthly_apy * 100
     apy_1w = weekly_apy * 100
 
@@ -146,10 +151,12 @@ def calculate_performance(vault_id: uuid.UUID):
         datetime=today,
         total_locked_value=total_balance,
         benchmark=benchmark,
-        benchmark_percentage=benchmark_percentage,
+        pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
         apy_1w=apy_1w,
+        vault_id=vault_id
     )
+    update_price_per_share(vault_id, current_price_per_share)
 
     return performance
 
