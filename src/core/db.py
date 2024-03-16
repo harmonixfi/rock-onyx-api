@@ -101,9 +101,17 @@ def seed_vault_performance(stablecoin_vault: Vault, session):
 def init_db(session: Session) -> None:
     # Create initial data
     vaults = [
-        Vault(name="Stablecoin Vault", vault_capacity=4 * 1e6, vault_currency="USDC"),
         Vault(
-            name="Delta Neutral Vault", vault_capacity=4 * 1e6, vault_currency="USDC"
+            name="Stable Coin Vault",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address="0x01CdC1dc16c677dfD4cFDE4478aAA494954657a0",
+        ),
+        Vault(
+            name="Delta Neutral Vault",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address="0x0000000000000000000000000000000000000000",
         ),
     ]
 
@@ -118,7 +126,7 @@ def init_db(session: Session) -> None:
 
     # Seed data for VaultPerformance for Stablecoin Vault
     stablecoin_vault = session.exec(
-        select(Vault).where(Vault.name == "Stablecoin Vault")
+        select(Vault).where(Vault.name == "Stable Coin Vault")
     ).first()
 
     seed_vault_performance(stablecoin_vault, session)

@@ -40,7 +40,7 @@ def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
     # Convert the list of PricePerShareHistory objects to a DataFrame
     pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
 
-    return pps_history_df[['datetime', 'price_per_share', 'vault_id']]
+    return pps_history_df[["datetime", "price_per_share", "vault_id"]]
 
 
 def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
@@ -48,8 +48,10 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
 
     # Check if a PricePerShareHistory record for today already exists
     existing_pps = session.exec(
-        select(PricePerShareHistory)
-        .where(PricePerShareHistory.vault_id == vault_id, PricePerShareHistory.datetime == today)
+        select(PricePerShareHistory).where(
+            PricePerShareHistory.vault_id == vault_id,
+            PricePerShareHistory.datetime == today,
+        )
     ).first()
 
     if existing_pps:
@@ -58,9 +60,7 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     else:
         # If no record for today exists, create a new one
         new_pps = PricePerShareHistory(
-            datetime=today, 
-            price_per_share=current_price_per_share, 
-            vault_id=vault_id
+            datetime=today, price_per_share=current_price_per_share, vault_id=vault_id
         )
         session.add(new_pps)
 
@@ -80,7 +80,10 @@ def get_before_price_per_shares(vault_id: uuid.UUID, days: int):
     # Get the PricePerShareHistory records before the target date and order them by datetime in descending order
     pps_history = session.exec(
         select(PricePerShareHistory)
-        .where(PricePerShareHistory.vault_id == vault_id, PricePerShareHistory.datetime <= target_date)
+        .where(
+            PricePerShareHistory.vault_id == vault_id,
+            PricePerShareHistory.datetime <= target_date,
+        )
         .order_by(PricePerShareHistory.datetime.desc())
     ).all()
 
@@ -94,14 +97,25 @@ def get_before_price_per_shares(vault_id: uuid.UUID, days: int):
 
 def get_current_pps():
     pps = rockOnyxUSDTVaultContract.functions.pricePerShare().call()
-
     return pps / 1e6
+
+
+def get_current_round():
+    current_round = rockOnyxUSDTVaultContract.functions.getCurrentRound().call()
+    return current_round
 
 
 def get_current_tvl():
     tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
 
     return tvl / 1e6
+
+
+def get_next_friday():
+    today = datetime.today()
+    next_friday = today + timedelta((4 - today.weekday()) % 7)
+    next_friday = next_friday.replace(hour=8, minute=0, second=0, microsecond=0)
+    return next_friday
 
 
 # Step 4: Calculate Performance Metrics
@@ -154,7 +168,7 @@ def calculate_performance(vault_id: uuid.UUID):
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
         apy_1w=apy_1w,
-        vault_id=vault_id
+        vault_id=vault_id,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
@@ -164,11 +178,19 @@ def calculate_performance(vault_id: uuid.UUID):
 # Main Execution
 def main():
     # Get the vault from the Vault table with name = "Stablecoin Vault"
-    vault = session.exec(select(Vault).where(Vault.name == "Stablecoin Vault")).first()
+    vault = session.exec(select(Vault).where(Vault.name == "Stable Coin Vault")).first()
 
     new_performance_rec = calculate_performance(vault.id)
     # Add the new performance record to the session and commit
     session.add(new_performance_rec)
+
+    # Update the vault with the new information
+    vault.monthly_apy = new_performance_rec.apy_1m
+    vault.weekly_apy = new_performance_rec.apy_1w
+    # vault.current_round = get_current_round()
+    vault.current_round = 1  # TODO: Remove this line once the contract is updated
+    vault.next_close_round_date = get_next_friday()
+
     session.commit()
 
 

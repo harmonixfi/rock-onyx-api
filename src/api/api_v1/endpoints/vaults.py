@@ -2,12 +2,13 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
+import pandas as pd
 from sqlmodel import select
 
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault
-from models.vault_performance import VaultPerformance
+from models.pps_history import PricePerShareHistory
 
 router = APIRouter()
 
@@ -35,11 +36,26 @@ async def get_vault_info(session: SessionDep, vault_id: str):
 
 @router.get("/{vault_id}/performance")
 async def get_vault_performance(session: SessionDep, vault_id: str):
-    vault_performance = session.exec(
-        select(VaultPerformance)
-        .where(VaultPerformance.vault_id == vault_id)
-        .order_by(VaultPerformance.datetime.asc())
+    # Get the PricePerShareHistory records for the given vault_id
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.asc())
     ).all()
-    if not vault_performance:
-        raise HTTPException(status_code=404, detail="Vault performance not found")
-    return vault_performance
+    
+    # Convert the list of PricePerShareHistory objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
+
+    # Calculate the cumulative return
+    pps_history_df["cum_return"] = (
+        (pps_history_df["price_per_share"] / pps_history_df["price_per_share"].iloc[0]) - 1
+    ) * 100
+
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
+
+    # Convert the date column to string format
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime('%Y-%m-%d')
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "cum_return"]].to_dict(orient="list")

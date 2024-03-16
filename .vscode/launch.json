@@ -27,6 +27,14 @@
             "module": "init_data",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: web3 listener",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "web3_listener",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
         }
     ]
 }

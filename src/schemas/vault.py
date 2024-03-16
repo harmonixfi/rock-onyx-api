@@ -12,6 +12,8 @@ class VaultBase(BaseModel):
     max_drawdown: float | None = None
     vault_capacity: int | None = None
     vault_currency: str | None = None
+    current_round: int | None = None
+    next_close_round_date: int | None = None
 
 
 # Properties shared by models stored in DB
