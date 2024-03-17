@@ -9,9 +9,14 @@ from web3 import Web3
 from core.db import engine
 from core.config import settings
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
+from datetime import datetime, timezone
+import logging
+# Initialize logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
-w3 = Web3(Web3.WebsocketProvider("ws://localhost:8545"))
+w3 = Web3(Web3.WebsocketProvider("wss://sepolia.infura.io/v3/9bcfbbd304c9498dad4a312761979ae8"))
 
 session = Session(engine)
 
@@ -49,25 +54,39 @@ def handle_event(entry, eventName):
     user_portfolio = session.exec(
         select(UserPortfolio).where(UserPortfolio.user_address == from_address)
     ).first()
+    if eventName == "Deposit":
+        if user_portfolio is None:
+            # Create new user_portfolio for this user address
+            user_portfolio = UserPortfolio(
+                vault_id=vault.id,
+                user_address=from_address,
+                total_balance=value,
+                init_deposit=value,
+                entry_price=latest_pps,
+                pnl=0,
+                status=PositionStatus.ACTIVE,
+                trade_start_date=datetime.now(timezone.utc),
+            )
+            session.add(user_portfolio)
+        else:
+            # Update the user_portfolio
+            user_portfolio = user_portfolio[0]
+            user_portfolio.total_balance += value
+            user_portfolio.init_deposit += value
+            session.add(user_portfolio)
 
-    if user_portfolio is None:
-        # Create new user_portfolio for this user address
-        user_portfolio = UserPortfolio(
-            vault_id=vault.id,
-            user_address=from_address,
-            total_balance=value,
-            init_deposit=value,
-            entry_price=latest_pps,
-            pnl=0,
-            status=PositionStatus.ACTIVE,
-            trade_start_date=datetime.now(tz=timezone.utc),
-        )
-        session.add(user_portfolio)
+    elif eventName == "Withdraw":
+        if user_portfolio is not None:
+            user_portfolio.total_balance -= value
+            if user_portfolio.total_balance <= 0:
+                user_portfolio.status = PositionStatus.CLOSED
+                user_portfolio.trade_end_date = datetime.now(timezone.utc)
+            session.add(user_portfolio)
+        else:
+            logger.error(f"User with address {from_address} not found in user_portfolio table")
+
     else:
-        # Update the user_portfolio
-        user_portfolio = user_portfolio[0]
-        user_portfolio.total_balance += value
-        user_portfolio.init_deposit += value
+        pass
 
     session.commit()
 
@@ -89,9 +108,17 @@ async def log_loop(event_filter, poll_interval):
 def main():
     deposit_event_filter = w3.eth.filter(
         {
-            "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+            "address": "0xBcc65b5d2eC6b94509F8cF3d8208AaB22b4fd94B",
             "topics": [
                 "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
+            ],
+        }
+    )
+    withdraw_event_filter = w3.eth.filter(
+        {
+            "address": "0xBcc65b5d2eC6b94509F8cF3d8208AaB22b4fd94B",
+            "topics": [
+                "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
             ],
         }
     )
@@ -101,6 +128,7 @@ def main():
         loop.run_until_complete(
             asyncio.gather(
                 log_loop(deposit_event_filter, 2),
+                log_loop(withdraw_event_filter, 2),
             )
         )
     finally:
