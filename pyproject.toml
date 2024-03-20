@@ -29,7 +29,6 @@ bcrypt = "4.0.1"
 pydantic-settings = "^2.2.1"
 numpy = "^1.26.4"
 web3 = "6.11.3"
-sqlmodel = "0.0.16"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

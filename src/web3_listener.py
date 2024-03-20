@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
-w3 = Web3(Web3.WebsocketProvider("wss://sepolia.infura.io/v3/9bcfbbd304c9498dad4a312761979ae8"))
+w3 = Web3(Web3.WebsocketProvider("wss://morning-distinguished-dream.ethereum-sepolia.quiknode.pro/4c29b83d4282a066bc116842a183fffecf764d3f"))
 
 session = Session(engine)
 
@@ -77,6 +77,7 @@ def handle_event(entry, eventName):
 
     elif eventName == "Withdraw":
         if user_portfolio is not None:
+            user_portfolio = user_portfolio[0]
             user_portfolio.total_balance -= value
             if user_portfolio.total_balance <= 0:
                 user_portfolio.status = PositionStatus.CLOSED
@@ -91,14 +92,16 @@ def handle_event(entry, eventName):
     session.commit()
 
 
-async def log_loop(event_filter, poll_interval):
+async def log_loop(event_filter, poll_interval, eventName):
     while True:
         try:
             # Add a timeout to the get_new_entries() method
             events = event_filter.get_new_entries()
             for event in events:
-                print(event)
-                handle_event(event, "Deposit")
+                if eventName == "Deposit":
+                    handle_event(event, "Deposit")
+                elif eventName == "Withdraw":
+                    handle_event(event, "Withdraw")
         except asyncio.TimeoutError:
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
@@ -127,8 +130,8 @@ def main():
     try:
         loop.run_until_complete(
             asyncio.gather(
-                log_loop(deposit_event_filter, 2),
-                log_loop(withdraw_event_filter, 2),
+                log_loop(deposit_event_filter, 2, "Deposit"),
+                log_loop(withdraw_event_filter, 2, "Withdraw"),
             )
         )
     finally:
