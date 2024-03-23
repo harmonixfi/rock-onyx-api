@@ -1,4 +1,0 @@
-export POSTGRES_SERVER=localhost
-export POSTGRES_USER=postgres
-export POSTGRES_DB=app
-export POSTGRES_PASSWORD=J9XscuN4AYTnb3ed5C8HWp
