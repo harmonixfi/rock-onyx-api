@@ -1,15 +1,17 @@
+import uuid
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
-import web3
-
-from services.gsheet import authenticate_gspread
-from services.market_data import get_price, get_klines
+from sqlmodel import Session, select
 from web3 import Web3
+
 from core.abi_reader import read_abi
 from core.config import settings
-from services.uniswap_data import get_uniswap_quote
+from core.db import engine
+from models import Vault
+from models.pps_history import PricePerShareHistory
+from models.vault_performance import VaultPerformance
+from services.market_data import get_price
 
 # Connect to the Ethereum network
 w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
@@ -19,6 +21,8 @@ rockOnyxUSDTVaultContract = w3.eth.contract(
     address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
 )
 
+session = Session(engine)
+
 
 def balance_of(wallet_address, token_address):
     token_contract = w3.eth.contract(address=token_address, abi=token_abi)
@@ -26,78 +30,41 @@ def balance_of(wallet_address, token_address):
     return token_balance
 
 
-def parse_currency_to_float(series: pd.Series):
-    series = series.str.replace("$", "")
-    series = series.str.replace(",", "").astype(float)
-    return series
+def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.asc())
+    ).all()
+
+    # Convert the list of PricePerShareHistory objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
+
+    return pps_history_df[["datetime", "price_per_share", "vault_id"]]
 
 
-# Step 2: Fetch Data from Google Sheets
-def fetch_data(client, sheet_name):
-    sheet = client.open(sheet_name)
-    ws = sheet.get_worksheet(1)
-    data = ws.get_all_records()
-    df = pd.DataFrame(data)
-    df["Vault Value"] = df["Vault Value"].astype(float)
-    df["Cap Gain"] = df["Cap Gain"].astype(float)
-    df["Cum Return"] = df["Cum Return"].astype(float)
-    df["APR"] = df["APR"].astype(float)
-    df["Benchmark %"] = df["Benchmark %"].astype(float)
+def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
+    today = datetime.now().date()
 
-    df[["Benchmark", "Benchmark %"]] = df[["Benchmark", "Benchmark %"]].astype("float")
-    return sheet, df
+    # Check if a PricePerShareHistory record for today already exists
+    existing_pps = session.exec(
+        select(PricePerShareHistory).where(
+            PricePerShareHistory.vault_id == vault_id,
+            PricePerShareHistory.datetime == today,
+        )
+    ).first()
 
+    if existing_pps:
+        # If a record for today already exists, update the price per share
+        existing_pps.price_per_share = current_price_per_share
+    else:
+        # If no record for today exists, create a new one
+        new_pps = PricePerShareHistory(
+            datetime=today, price_per_share=current_price_per_share, vault_id=vault_id
+        )
+        session.add(new_pps)
 
-def calculate_options_apr(sheet):
-    options_ws = sheet.get_worksheet(3)
-    data = options_ws.get_all_records()
-    data = pd.DataFrame(data)
-
-    capital_employed = float(options_ws.acell("I2").value)
-
-    # Calculate total premiums received
-    data["Expiration Date"] = pd.to_datetime(data["Expiration Date"])
-    data["Annualized Premium"] = (data["Premium"] * data["Quantity"]) * 26
-    total_annualized_premiums = data["Annualized Premium"].sum()
-
-    # Calculate APR
-    apr = total_annualized_premiums / capital_employed
-    return apr
-
-
-def get_wallet_balances():
-    # Call the getUserAccountData function
-    wallet_address = Web3.to_checksum_address(settings.WALLET_ADDRESS)
-    # Get ETH balance
-    eth_balance = w3.eth.get_balance(wallet_address)
-    eth_balance = w3.from_wei(eth_balance, "ether")
-
-    wstETH_balance = balance_of(wallet_address, settings.WSTETH_ADDRESS)
-    wstETH_balance = w3.from_wei(wstETH_balance, "ether")
-
-    usdc_balance = balance_of(wallet_address, settings.USDC_ADDRESS) / 10**6
-
-    usdce_balance = balance_of(wallet_address, settings.USDCE_ADDRESS) / 10**6
-
-    return {
-        "ETH": eth_balance,
-        "wstETH": wstETH_balance,
-        "USDC": usdc_balance,
-        "USDC.e": usdce_balance,
-    }
-
-
-def get_price_per_share_history(sheet):
-    ws = sheet.get_worksheet(5)
-    data = ws.get_all_records()
-    df = pd.DataFrame(data)
-    df["Date"] = pd.to_datetime(df["Date"])
-    return df
-
-
-def update_price_per_share_sheet(sheet, row_num, values):
-    ws = sheet.get_worksheet(5)
-    ws.update(range_name=f"A{row_num}:D{row_num}", values=[values])
+    session.commit()
 
 
 def calculate_roi(after: float, before: float, days: int) -> float:
@@ -107,31 +74,35 @@ def calculate_roi(after: float, before: float, days: int) -> float:
     return annualized_roi
 
 
-def get_before_price_per_shares(df, days=30) -> pd.Series:
-    today = datetime.utcnow()
-    # Calculate the date 30 days ago
-    previous_month = (
-        (today - timedelta(days=days))
-        .replace(hour=0)
-        .replace(minute=0)
-        .replace(second=0)
-        .replace(microsecond=0)
-    )
+def get_before_price_per_shares(vault_id: uuid.UUID, days: int):
+    target_date = datetime.now() - timedelta(days=days)
 
-    # Check if the date is in the DataFrame, if not, get the first value
-    row = df[df["Date"] == previous_month]
-    if len(row) > 0:
-        result = row.iloc[0]
-    else:
-        result = df.iloc[0]
+    # Get the PricePerShareHistory records before the target date and order them by datetime in descending order
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(
+            PricePerShareHistory.vault_id == vault_id,
+            PricePerShareHistory.datetime <= target_date,
+        )
+        .order_by(PricePerShareHistory.datetime.desc())
+    ).all()
 
-    return result["PricePerShare"]
+    # If there are any records, return the price per share of the most recent one
+    if pps_history:
+        return pps_history[0].price_per_share
+
+    # If there are no records before the target date, return None
+    return 1
 
 
 def get_current_pps():
     pps = rockOnyxUSDTVaultContract.functions.pricePerShare().call()
-
     return pps / 1e6
+
+
+def get_current_round():
+    current_round = rockOnyxUSDTVaultContract.functions.getCurrentRound().call()
+    return current_round
 
 
 def get_current_tvl():
@@ -140,8 +111,15 @@ def get_current_tvl():
     return tvl / 1e6
 
 
+def get_next_friday():
+    today = datetime.today()
+    next_friday = today + timedelta((4 - today.weekday()) % 7)
+    next_friday = next_friday.replace(hour=8, minute=0, second=0, microsecond=0)
+    return next_friday
+
+
 # Step 4: Calculate Performance Metrics
-def calculate_performance(sheet, df):
+def calculate_performance(vault_id: uuid.UUID):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
@@ -149,29 +127,18 @@ def calculate_performance(sheet, df):
     # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 
-    price_per_share_df = get_price_per_share_history(sheet)
-    total_shares = price_per_share_df["TotalShares"].iloc[-1]
+    # price_per_share_df = get_price_per_share_history(vault_id)
 
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
-    update_price_per_share_sheet(
-        sheet,
-        row_num=int(len(price_per_share_df) + 2),  # include header
-        values=[
-            today,
-            0,
-            0,
-            float(current_price_per_share),
-        ],
-    )
 
     # Calculate Monthly APY
-    month_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=30)
+    month_ago_price_per_share = get_before_price_per_shares(vault_id, days=30)
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share, days=30
     )
 
-    week_ago_price_per_share = get_before_price_per_shares(price_per_share_df, days=7)
+    week_ago_price_per_share = get_before_price_per_shares(vault_id, days=7)
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share, days=7
     )
@@ -184,48 +151,47 @@ def calculate_performance(sheet, df):
     # calculate our APR after fees
     apr = compounding * ((net_apy + 1) ** (1 / compounding)) - compounding
 
-    # Calculations
-    df.loc[len(df)] = [
-        today,
-        total_balance,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    ]  # Add new row for current date
+    performance_history = session.exec(
+        select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
+    ).first()
 
-    df["Cap Gain"] = df["Vault Value"] - df["Vault Value"].shift()
-    df.loc[len(df) - 1, "Benchmark"] = current_price
-    # Calculate Cumulative Returns
-    df["Cum Return"] = ((df["Vault Value"] / df["Vault Value"].iloc[0]) - 1) * 100
-    df["Benchmark %"] = ((df["Benchmark"] / df["Benchmark"].iloc[0]) - 1) * 100
-    df.loc[len(df) - 1, "APR"] = apr * 100
-    df.loc[len(df) - 1, "APY_1M"] = monthly_apy * 100
-    df.loc[len(df) - 1, "APY_1W"] = weekly_apy * 100
-    return df
+    benchmark = current_price
+    benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
+    apy_1m = monthly_apy * 100
+    apy_1w = weekly_apy * 100
 
+    # Create a new VaultPerformance object
+    performance = VaultPerformance(
+        datetime=today,
+        total_locked_value=total_balance,
+        benchmark=benchmark,
+        pct_benchmark=benchmark_percentage,
+        apy_1m=apy_1m,
+        apy_1w=apy_1w,
+        vault_id=vault_id,
+    )
+    update_price_per_share(vault_id, current_price_per_share)
 
-# Step 5: Write Data Back to Google Sheets
-def update_performance_sheet(sheet, df):
-    performance_sheet = sheet.get_worksheet(1)
-    data = []
-    for col in df.columns:
-        data.append(df[col].iloc[-1])
-
-    row = len(df) + 1
-    performance_sheet.update(range_name=f"A{row}:I{row}", values=[data])
+    return performance
 
 
 # Main Execution
 def main():
-    client = authenticate_gspread()
+    # Get the vault from the Vault table with name = "Stablecoin Vault"
+    vault = session.exec(select(Vault).where(Vault.name == "Stable Coin Vault")).first()
 
-    sheet, df = fetch_data(client, "Rock Onyx Fund")
-    df = calculate_performance(sheet, df)
-    update_performance_sheet(sheet, df)
+    new_performance_rec = calculate_performance(vault.id)
+    # Add the new performance record to the session and commit
+    session.add(new_performance_rec)
+
+    # Update the vault with the new information
+    vault.monthly_apy = new_performance_rec.apy_1m
+    vault.weekly_apy = new_performance_rec.apy_1w
+    # vault.current_round = get_current_round()
+    vault.current_round = 1  # TODO: Remove this line once the contract is updated
+    vault.next_close_round_date = get_next_friday()
+
+    session.commit()
 
 
 if __name__ == "__main__":

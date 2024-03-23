@@ -39,3 +39,4 @@ env/
 *.pyc
 *.pyc
 .env
+set_env.sh

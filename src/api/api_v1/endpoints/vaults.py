@@ -1,87 +1,61 @@
-import json
-import numpy as np
-import pandas as pd
-from fastapi import APIRouter, FastAPI, Path
+from typing import List
+from uuid import UUID
 
-from services.gsheet import authenticate_gspread
-from services.market_data import get_price
+from fastapi import APIRouter, HTTPException
+import pandas as pd
+from sqlmodel import select
+
+import schemas
+from api.api_v1.deps import SessionDep
+from models import Vault
+from models.pps_history import PricePerShareHistory
 
 router = APIRouter()
 
-# Load vaults data from JSON file
-with open("data/vaults.json", "r") as vaults_file:
-    vaults_data = json.load(vaults_file)
+
+@router.get("/", response_model=List[schemas.Vault])
+async def get_all_vaults(session: SessionDep):
+    statement = select(Vault)
+    vaults = session.exec(statement).all()
+    return vaults
 
 
-def fetch_data(client, sheet_name):
-    sheet = client.open(sheet_name).get_worksheet(1)
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
-    df["Vault Value"] = df["Vault Value"].astype(float)
-    df["Cap Gain"] = df["Cap Gain"].astype(float)
-    df["Cum Return"] = df["Cum Return"].astype(float)
-    df["APR"] = df["APR"].astype(float)
-    df["Benchmark %"] = df["Benchmark %"].astype(float)
+@router.get("/{vault_id}", response_model=schemas.Vault)
+async def get_vault_info(session: SessionDep, vault_id: str):
+    statement = select(Vault).where(Vault.id == UUID(vault_id))
+    vault = session.exec(statement).one()
 
-    df[["Benchmark", "Benchmark %"]] = df[["Benchmark", "Benchmark %"]].astype("float")
-    return df
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
 
-
-def calculate_max_drawdown(cum_returns):
-    # Calculate the maximum drawdown in the cumulative return series
-    peak = cum_returns.cummax()
-    drawdown = (cum_returns - peak) / peak
-    max_drawdown = drawdown.min()
-    return max_drawdown
+    return vault
 
 
-@router.get("/vaults/{vault_id}")
-async def get_vault_info(vault_id: str):
-    vault_info = next((vault for vault in vaults_data if vault["id"] == vault_id), None)
-    if not vault_info:
-        return {"error": "Vault not found"}
+@router.get("/{vault_id}/performance")
+async def get_vault_performance(session: SessionDep, vault_id: str):
+    # Get the PricePerShareHistory records for the given vault_id
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.asc())
+    ).all()
+    
+    # Convert the list of PricePerShareHistory objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
 
-    client = authenticate_gspread()
-    df = fetch_data(client, "Rock Onyx Fund")
+    # Calculate the cumulative return
+    pps_history_df["cum_return"] = (
+        (pps_history_df["price_per_share"] / pps_history_df["price_per_share"].iloc[0]) - 1
+    ) * 100
 
-    apr = df["APR"].iloc[-1]
-    monthly_apy = df["APY_1M"].iloc[-1]
-    weekly_apy = df["APY_1W"].iloc[-1]
-    max_drawdown = calculate_max_drawdown(
-        df["Cum Return"]
-    )  # Convert back to percentage
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
-    current_price = get_price("ETHUSDT")
-    vault_capacity = vault_info["capacity"] / current_price
+    # Convert the date column to string format
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime('%Y-%m-%d')
 
-    return {
-        "apr": float(apr),
-        "monthly_apy": float(monthly_apy),
-        "weekly_apy": float(weekly_apy),
-        "max_drawdown": float(max_drawdown) if not np.isnan(max_drawdown) else 0,
-        "vault_capacity": vault_capacity,
-        "vault_currency": "USDC",
-    }
-
-
-@router.get("/vaults/{vault_id}/performance")
-async def get_vault_performance(vault_id: str):
-    vault_info = next((vault for vault in vaults_data if vault["id"] == vault_id), None)
-    if not vault_info:
-        return {"error": "Vault not found"}
-
-    client = authenticate_gspread()
-    df = fetch_data(client, "Rock Onyx Fund")
-
-    # Convert non-compliant values to None
-    df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.where(pd.notnull(df), 0)
-
-    # Prepare data for JSON response
-    performance_data = {
-        "date": df["Date"].tolist(),
-        "cum_return": df["Cum Return"].tolist(),
-        "benchmark_ret": df["Benchmark %"].tolist(),
-    }
-
-    return performance_data
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "cum_return"]].to_dict(orient="list")
