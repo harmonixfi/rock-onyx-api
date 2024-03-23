@@ -105,13 +105,13 @@ def init_db(session: Session) -> None:
             name="Stable Coin Vault",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
-            contract_address="0x01CdC1dc16c677dfD4cFDE4478aAA494954657a0",
+            contract_address=settings.ROCKONYX_STABLECOIN_ADDRESS,
         ),
         Vault(
             name="Delta Neutral Vault",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
-            contract_address="0x0000000000000000000000000000000000000000",
+            contract_address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
         ),
     ]
 

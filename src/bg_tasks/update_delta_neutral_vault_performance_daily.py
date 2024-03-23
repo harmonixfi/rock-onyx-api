@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timedelta
 
+import pandas as pd
 from sqlmodel import Session, select
 from web3 import Web3
-import pandas as pd
 
 from core.abi_reader import read_abi
 from core.config import settings
@@ -14,9 +14,12 @@ from models.vault_performance import VaultPerformance
 from services.market_data import get_price
 
 # Connect to the Ethereum network
-w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+if( settings.ENVIRONMENT == "Prodcution"):
+    w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+else:
+    w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
 token_abi = read_abi("ERC20")
-rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
+rockonyx_stablecoin_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 rockOnyxUSDTVaultContract = w3.eth.contract(
     address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
 )
@@ -117,6 +120,11 @@ def get_next_friday():
     next_friday = next_friday.replace(hour=8, minute=0, second=0, microsecond=0)
     return next_friday
 
+def get_next_day():
+    today = datetime.today()
+    next_day = today + timedelta(1)
+    next_day = next_day.replace(hour=8, minute=0, second=0, microsecond=0)
+    return next_day
 
 # Step 4: Calculate Performance Metrics
 def calculate_performance(vault_id: uuid.UUID):
@@ -142,6 +150,7 @@ def calculate_performance(vault_id: uuid.UUID):
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share, days=7
     )
+
     apys = [monthly_apy, weekly_apy]
     net_apy = next((value for value in apys if value != 0), 0)
 
@@ -177,8 +186,8 @@ def calculate_performance(vault_id: uuid.UUID):
 
 # Main Execution
 def main():
-    # Get the vault from the Vault table with name = "Stablecoin Vault"
-    vault = session.exec(select(Vault).where(Vault.name == "Stable Coin Vault")).first()
+    # Get the vault from the Vault table with name = "Delta Neutral Vault"
+    vault = session.exec(select(Vault).where(Vault.name == "Delta Neutral Vault")).first()
 
     new_performance_rec = calculate_performance(vault.id)
     # Add the new performance record to the session and commit
@@ -188,8 +197,8 @@ def main():
     vault.monthly_apy = new_performance_rec.apy_1m
     vault.weekly_apy = new_performance_rec.apy_1w
     # vault.current_round = get_current_round()
-    vault.current_round = 1  # TODO: Remove this line once the contract is updated
-    vault.next_close_round_date = get_next_friday()
+    vault.current_round = None  # TODO: Remove this line once the contract is updated
+    vault.next_close_round_date = None
 
     session.commit()
 
