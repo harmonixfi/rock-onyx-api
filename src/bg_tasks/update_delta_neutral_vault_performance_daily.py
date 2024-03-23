@@ -14,14 +14,14 @@ from models.vault_performance import VaultPerformance
 from services.market_data import get_price
 
 # Connect to the Ethereum network
-if( settings.ENVIRONMENT == "Prodcution"):
+if( settings.ENVIRONMENT_NAME == "Prodcution"):
     w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
 else:
     w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
 token_abi = read_abi("ERC20")
-rockonyx_stablecoin_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 rockOnyxUSDTVaultContract = w3.eth.contract(
-    address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
+    address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS, abi=rockonyx_delta_neutral_vault_abi
 )
 
 session = Session(engine)
