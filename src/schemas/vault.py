@@ -1,6 +1,6 @@
 import uuid
 from pydantic import BaseModel, ConfigDict
-
+from datetime import datetime
 
 class VaultBase(BaseModel):
     id: uuid.UUID
@@ -13,7 +13,7 @@ class VaultBase(BaseModel):
     vault_capacity: int | None = None
     vault_currency: str | None = None
     current_round: int | None = None
-    next_close_round_date: int | None = None
+    next_close_round_date: datetime | None = None
 
 
 # Properties shared by models stored in DB
