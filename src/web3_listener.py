@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
 
+from config import w3
+
 from core.db import engine
 from core.config import settings
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
-w3 = Web3(Web3.WebsocketProvider("wss://morning-distinguished-dream.ethereum-sepolia.quiknode.pro/4c29b83d4282a066bc116842a183fffecf764d3f"))
+w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
 
 session = Session(engine)
 
@@ -111,17 +113,17 @@ async def log_loop(event_filter, poll_interval, eventName):
 def main():
     deposit_event_filter = w3.eth.filter(
         {
-            "address": "0xBcc65b5d2eC6b94509F8cF3d8208AaB22b4fd94B",
+            "address": settings.VAULT_FILTER_ADDRESS,
             "topics": [
-                "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
+                settings.DEPOSIT_VAULT_FILTER_TOPICS
             ],
         }
     )
     withdraw_event_filter = w3.eth.filter(
         {
-            "address": "0xBcc65b5d2eC6b94509F8cF3d8208AaB22b4fd94B",
+            "address": settings.VAULT_FILTER_ADDRESS,
             "topics": [
-                "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
+                settings.DEPOSIT_VAULT_FILTER_TOPICS
             ],
         }
     )
