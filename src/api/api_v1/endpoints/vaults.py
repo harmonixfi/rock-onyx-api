@@ -18,7 +18,7 @@ router = APIRouter()
 async def get_all_vaults(session: SessionDep):
     statement = select(Vault)
     vaults = session.exec(statement).all()
-    schemasvaults = []
+    schemas_vaults = []
     for vault in vaults:
         schemavaults = schemas.Vault(
             id=vault.id,
@@ -33,15 +33,20 @@ async def get_all_vaults(session: SessionDep):
             next_close_round_date=vault.next_close_round_date,
             slug = slugify(vault.name)
         )  
-        schemasvaults.append(schemavaults)
-    return schemasvaults
+        schemas_vaults.append(schemavaults)
+    return schemas_vaults
 
 
 @router.get("/{vault_id}", response_model=schemas.Vault)
 async def get_vault_info(session: SessionDep, vault_id: str):
     statement = select(Vault).where(Vault.id == UUID(vault_id))
     vault = session.exec(statement).one()
-    schemavaults = schemas.Vault(
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+    schema_vault = schemas.Vault(
             id=vault.id,
             name=vault.name,
             apr=vault.apr,
@@ -54,13 +59,7 @@ async def get_vault_info(session: SessionDep, vault_id: str):
             next_close_round_date=vault.next_close_round_date,
             slug = slugify(vault.name)
         )  
-    if vault is None:
-        raise HTTPException(
-            status_code=400,
-            detail="The data not found in the database.",
-        )
-
-    return vault
+    return schema_vault
 
 
 @router.get("/{vault_id}/performance")
