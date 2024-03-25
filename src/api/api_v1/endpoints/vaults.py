@@ -31,8 +31,8 @@ async def get_all_vaults(session: SessionDep):
             vault_currency=vault.vault_currency,
             current_round=vault.current_round,
             next_close_round_date=vault.next_close_round_date,
-            slug = slugify(vault.name)
-        )  
+            slug=slugify(vault.name),
+        )
         schemas_vaults.append(schemavaults)
     return schemas_vaults
 
@@ -40,25 +40,25 @@ async def get_all_vaults(session: SessionDep):
 @router.get("/{vault_id}", response_model=schemas.Vault)
 async def get_vault_info(session: SessionDep, vault_id: str):
     statement = select(Vault).where(Vault.id == UUID(vault_id))
-    vault = session.exec(statement).one()
+    vault = session.exec(statement).first()
     if vault is None:
         raise HTTPException(
             status_code=400,
             detail="The data not found in the database.",
         )
     schema_vault = schemas.Vault(
-            id=vault.id,
-            name=vault.name,
-            apr=vault.apr,
-            monthly_apy=vault.monthly_apy,
-            weekly_apy=vault.weekly_apy,
-            max_drawdown=vault.max_drawdown,
-            vault_capacity=vault.vault_capacity,
-            vault_currency=vault.vault_currency,
-            current_round=vault.current_round,
-            next_close_round_date=vault.next_close_round_date,
-            slug = slugify(vault.name)
-        )  
+        id=vault.id,
+        name=vault.name,
+        apr=vault.apr,
+        monthly_apy=vault.monthly_apy,
+        weekly_apy=vault.weekly_apy,
+        max_drawdown=vault.max_drawdown,
+        vault_capacity=vault.vault_capacity,
+        vault_currency=vault.vault_currency,
+        current_round=vault.current_round,
+        next_close_round_date=vault.next_close_round_date,
+        slug=slugify(vault.name),
+    )
     return schema_vault
 
 
@@ -70,20 +70,21 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
         .where(PricePerShareHistory.vault_id == vault_id)
         .order_by(PricePerShareHistory.datetime.asc())
     ).all()
-    
+
     # Convert the list of PricePerShareHistory objects to a DataFrame
     pps_history_df = pd.DataFrame([vars(pps) for pps in pps_history])
 
     # Calculate the cumulative return
     pps_history_df["cum_return"] = (
-        (pps_history_df["price_per_share"] / pps_history_df["price_per_share"].iloc[0]) - 1
+        (pps_history_df["price_per_share"] / pps_history_df["price_per_share"].iloc[0])
+        - 1
     ) * 100
 
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
     # Convert the date column to string format
-    pps_history_df["date"] = pps_history_df["date"].dt.strftime('%Y-%m-%d')
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%d")
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "cum_return"]].to_dict(orient="list")
