@@ -13,10 +13,34 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: Update Delta Neutral Vault Performance",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_delta_neutral_vault_performance_daily",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: API",
             "type": "debugpy",
             "request": "launch",
             "module": "main",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: init_data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "init_data",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: web3 listener",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "web3_listener",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         }

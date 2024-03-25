@@ -40,3 +40,4 @@ env/
 *.pyc
 .env
 .env
+set_env.sh

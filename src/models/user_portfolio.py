@@ -1,0 +1,24 @@
+from typing import Optional
+from sqlmodel import SQLModel, Field
+from enum import Enum
+from uuid import UUID
+from datetime import datetime, timezone
+
+
+class PositionStatus(str, Enum):
+    ACTIVE = "active"
+    CLOSED = "closed"
+
+
+class UserPortfolio(SQLModel, table=True):
+    __tablename__ = "user_portfolio"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    vault_id: UUID
+    user_address: str
+    total_balance: float
+    init_deposit: float
+    entry_price: float | None = None
+    pnl: float | None = None
+    status: PositionStatus = Field(default=PositionStatus.ACTIVE)
+    trade_start_date: datetime = Field(default=datetime.now(tz=timezone.utc))
+    pending_withdrawal: float | None = None
