@@ -14,14 +14,16 @@ from models.vault_performance import VaultPerformance
 from services.market_data import get_price
 
 # Connect to the Ethereum network
-if( settings.ENVIRONMENT_NAME == "Prodcution"):
+if settings.ENVIRONMENT_NAME == "Prodcution":
     w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
 else:
     w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
+
 token_abi = read_abi("ERC20")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 rockOnyxUSDTVaultContract = w3.eth.contract(
-    address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS, abi=rockonyx_delta_neutral_vault_abi
+    address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+    abi=rockonyx_delta_neutral_vault_abi,
 )
 
 session = Session(engine)
@@ -120,11 +122,13 @@ def get_next_friday():
     next_friday = next_friday.replace(hour=8, minute=0, second=0, microsecond=0)
     return next_friday
 
+
 def get_next_day():
     today = datetime.today()
     next_day = today + timedelta(1)
     next_day = next_day.replace(hour=8, minute=0, second=0, microsecond=0)
     return next_day
+
 
 # Step 4: Calculate Performance Metrics
 def calculate_performance(vault_id: uuid.UUID):
@@ -187,7 +191,9 @@ def calculate_performance(vault_id: uuid.UUID):
 # Main Execution
 def main():
     # Get the vault from the Vault table with name = "Delta Neutral Vault"
-    vault = session.exec(select(Vault).where(Vault.name == "Delta Neutral Vault")).first()
+    vault = session.exec(
+        select(Vault).where(Vault.name == "Delta Neutral Vault")
+    ).first()
 
     new_performance_rec = calculate_performance(vault.id)
     # Add the new performance record to the session and commit

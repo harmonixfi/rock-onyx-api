@@ -6,8 +6,6 @@ from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
 
-from config import w3
-
 from core.db import engine
 from core.config import settings
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
@@ -18,7 +16,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
-w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
+if settings.ENVIRONMENT_NAME == "Prodcution":
+    w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+else:
+    w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
 
 session = Session(engine)
 
