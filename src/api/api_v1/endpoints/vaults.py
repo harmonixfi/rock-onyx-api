@@ -9,6 +9,7 @@ import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault
 from models.pps_history import PricePerShareHistory
+from utils.slug import slugify
 
 router = APIRouter()
 
@@ -17,21 +18,48 @@ router = APIRouter()
 async def get_all_vaults(session: SessionDep):
     statement = select(Vault)
     vaults = session.exec(statement).all()
-    return vaults
+    schemas_vaults = []
+    for vault in vaults:
+        schemavaults = schemas.Vault(
+            id=vault.id,
+            name=vault.name,
+            apr=vault.apr,
+            monthly_apy=vault.monthly_apy,
+            weekly_apy=vault.weekly_apy,
+            max_drawdown=vault.max_drawdown,
+            vault_capacity=vault.vault_capacity,
+            vault_currency=vault.vault_currency,
+            current_round=vault.current_round,
+            next_close_round_date=vault.next_close_round_date,
+            slug = slugify(vault.name)
+        )  
+        schemas_vaults.append(schemavaults)
+    return schemas_vaults
 
 
 @router.get("/{vault_id}", response_model=schemas.Vault)
 async def get_vault_info(session: SessionDep, vault_id: str):
     statement = select(Vault).where(Vault.id == UUID(vault_id))
     vault = session.exec(statement).one()
-
     if vault is None:
         raise HTTPException(
             status_code=400,
             detail="The data not found in the database.",
         )
-
-    return vault
+    schema_vault = schemas.Vault(
+            id=vault.id,
+            name=vault.name,
+            apr=vault.apr,
+            monthly_apy=vault.monthly_apy,
+            weekly_apy=vault.weekly_apy,
+            max_drawdown=vault.max_drawdown,
+            vault_capacity=vault.vault_capacity,
+            vault_currency=vault.vault_currency,
+            current_round=vault.current_round,
+            next_close_round_date=vault.next_close_round_date,
+            slug = slugify(vault.name)
+        )  
+    return schema_vault
 
 
 @router.get("/{vault_id}/performance")

@@ -12,6 +12,7 @@ from models import Vault, UserPortfolio
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
 from schemas import Position
+from utils.slug import slugify
 router = APIRouter()
 
 @router.get("/", response_model=schemas.Portfolio)
@@ -39,7 +40,8 @@ async def get_all_portfolios(session: SessionDep):
             current_round=vault.current_round,
             next_close_round_date=vault.next_close_round_date,
             monthly_apy=vault.monthly_apy,
-            weekly_apy=vault.weekly_apy
+            weekly_apy=vault.weekly_apy,
+            slug=slugify(vault.name)
         )
         total_balance += userportfolio.total_balance
         positions.append(position)
@@ -81,7 +83,8 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
             current_round=vault.current_round,
             next_close_round_date=vault.next_close_round_date,
             monthly_apy=vault.monthly_apy,
-            weekly_apy=vault.weekly_apy
+            weekly_apy=vault.weekly_apy,
+            slug=slugify(vault.name)
         )
         total_balance += userportfolio.total_balance
         positions.append(position)

@@ -19,6 +19,7 @@ class Position(BaseModel):
     next_close_round_date : datetime | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
+    slug: str | None = None
 
 
 class PortfolioBase(BaseModel):
