@@ -14,7 +14,7 @@ from models.vault_performance import VaultPerformance
 from services.market_data import get_price
 
 # Connect to the Ethereum network
-if settings.ENVIRONMENT_NAME == "Prodcution":
+if settings.ENVIRONMENT_NAME == "Production":
     w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
 else:
     w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
