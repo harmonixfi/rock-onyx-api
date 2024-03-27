@@ -118,6 +118,39 @@ def get_next_friday():
     return next_friday
 
 
+def calculate_apy_ytd(vault_id, current_price_per_share):
+    now = datetime.now()
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+
+    # Get the start of the year or the first logged price per share
+    start_of_year = datetime(now.year, 1, 1)
+    price_per_share_start = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault.id)
+        .order_by(PricePerShareHistory.datetime.asc())
+    ).first()
+
+    if price_per_share_start.datetime - start_of_year > timedelta(days=365):
+        price_per_share_start = session.exec(
+            select(PricePerShareHistory)
+            .where(
+                PricePerShareHistory.vault_id == vault.id
+                and PricePerShareHistory.datetime >= start_of_year
+            )
+            .order_by(PricePerShareHistory.datetime.asc())
+        ).first()
+
+    if price_per_share_start is not None:
+        # Calculate the APY
+        apy_ytd = calculate_roi(
+            current_price_per_share,
+            price_per_share_start.price_per_share,
+            days=(now - price_per_share_start.datetime).days,
+        )
+
+        return apy_ytd
+
+
 # Step 4: Calculate Performance Metrics
 def calculate_performance(vault_id: uuid.UUID):
     current_price = get_price("ETHUSDT")
@@ -142,14 +175,8 @@ def calculate_performance(vault_id: uuid.UUID):
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share, days=7
     )
-    apys = [monthly_apy, weekly_apy]
-    net_apy = next((value for value in apys if value != 0), 0)
 
-    # assume we are compounding every week
-    compounding = 52
-
-    # calculate our APR after fees
-    apr = compounding * ((net_apy + 1) ** (1 / compounding)) - compounding
+    apy_ytd = calculate_apy_ytd(vault_id, current_price_per_share)
 
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
@@ -159,6 +186,7 @@ def calculate_performance(vault_id: uuid.UUID):
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
     apy_1m = monthly_apy * 100
     apy_1w = weekly_apy * 100
+    apy_ytd = apy_ytd * 100
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
@@ -168,6 +196,7 @@ def calculate_performance(vault_id: uuid.UUID):
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
         apy_1w=apy_1w,
+        apy_ytd=apy_ytd,
         vault_id=vault_id,
     )
     update_price_per_share(vault_id, current_price_per_share)

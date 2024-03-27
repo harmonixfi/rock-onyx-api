@@ -8,6 +8,7 @@ class VaultPerformanceBase(BaseModel):
     total_locked_value: float
     apy_1m: float
     apy_1w: float
+    apy_ytd: float
     benchmark: float
     pct_benchmark: float
 
