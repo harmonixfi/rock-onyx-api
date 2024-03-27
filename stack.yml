@@ -10,6 +10,36 @@ services:
       - PGDATA=/var/lib/postgresql/data/pgdata
     ports:
       - 5432:5432
+    networks:
+      - onyx_network
+
+  api:
+    image: 'onyxapi:${TAG-latest}'
+    env_file:
+      - .env
+    environment:
+      - SERVER_NAME=${SERVER_NAME?Variable not set}
+      - SERVER_HOST=${SERVER_HOST?Variable not set}
+      # Allow explicit env var override for tests
+      - CRONTAB="cat crontab"
+      - TZ="UTC"
+    volumes:
+      - ./src/:/app
+    build:
+      context: .
+      dockerfile: backend.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+    command: sh -c "while :; do sleep 1; done"
+    depends_on:
+      - db
+    networks:
+      - onyx_network
+
+
+networks:
+  onyx_network:
+    driver: bridge
 
 volumes:
   app-db-data:

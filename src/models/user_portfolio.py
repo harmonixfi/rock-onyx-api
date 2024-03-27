@@ -18,7 +18,9 @@ class UserPortfolio(SQLModel, table=True):
     total_balance: float
     init_deposit: float
     entry_price: float | None = None
+    exit_price: float | None = None
     pnl: float | None = None
+    pending_withdrawal: float | None = None
     status: PositionStatus = Field(default=PositionStatus.ACTIVE)
     trade_start_date: datetime = Field(default=datetime.now(tz=timezone.utc))
-    pending_withdrawal: float | None = None
+    trade_end_date: datetime = Field(default=datetime.now(tz=timezone.utc))

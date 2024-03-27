@@ -16,6 +16,7 @@ class VaultBase(sqlmodel.SQLModel):
     vault_currency: str | None = None
     current_round: int | None = None
     next_close_round_date: datetime | None = None
+    slug: str | None = None
 
 
 # Database model, database table inferred from class name

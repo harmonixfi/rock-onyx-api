@@ -1,5 +1,5 @@
 import secrets
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 from pydantic import AnyHttpUrl, validator
 from pydantic_settings import BaseSettings
 
@@ -13,6 +13,7 @@ from pydantic import (
 
 
 class Settings(BaseSettings):
+    
     ENVIRONMENT_NAME: str
 
     @property
@@ -52,22 +53,31 @@ class Settings(BaseSettings):
         "https://sepolia.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
 
-    VAULT_FILTER_ADDRESS: str = "0xBcc65b5d2eC6b94509F8cF3d8208AaB22b4fd94B"
-    DEPOSIT_VAULT_FILTER_TOPICS: str = "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
-    WITHDRAW_VAULT_FILTER_TOPICS: str = "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
-
     WALLET_ADDRESS: str
     WSTETH_ADDRESS: str = "0x5979D7b546E38E414F7E9822514be443A4800529"
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
-    ROCKONYX_STABLECOIN_ADDRESS: str = "0x01CdC1dc16c677dfD4cFDE4478aAA494954657a0"
+    ROCKONYX_STABLECOIN_ADDRESS: str
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str
+
+    STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
+    STABLECOIN_WITHDRAW_VAULT_FILTER_TOPICS: str = "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
+
+    DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str
+    DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC: str
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     SQLALCHEMY_DATABASE_URI: PostgresDsn | None = None
+
+    PYTHONPATH: Optional[str]= None
+    NODE_ENV: Optional[str]= None
+    NEXT_PUBLIC_THIRD_WEB_CLIENT_ID: Optional[str]= None
+    NEXT_PUBLIC_API_URL: Optional[str]= None
+    NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str]= None
+    NEXT_PUBLIC_USDC_ADDRESS: Optional[str]= None
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
@@ -82,6 +92,7 @@ class Settings(BaseSettings):
         )
 
     class Config:
+        
         case_sensitive = True
         env_file = "../.env"
 
