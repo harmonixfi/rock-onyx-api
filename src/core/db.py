@@ -102,16 +102,18 @@ def init_db(session: Session) -> None:
     # Create initial data
     vaults = [
         Vault(
-            name="Stable Coin Vault",
+            name="Options Wheel Vault",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_STABLECOIN_ADDRESS,
+            slug="options-wheel-vault",
         ),
         Vault(
             name="Delta Neutral Vault",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+            slug="delta-neutral-vault",
         ),
     ]
 
@@ -126,7 +128,7 @@ def init_db(session: Session) -> None:
 
     # Seed data for VaultPerformance for Stablecoin Vault
     stablecoin_vault = session.exec(
-        select(Vault).where(Vault.name == "Stable Coin Vault")
+        select(Vault).where(Vault.name == "Options Wheel Vault")
     ).first()
 
     seed_vault_performance(stablecoin_vault, session)
