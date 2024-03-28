@@ -9,6 +9,7 @@ class VaultBase(sqlmodel.SQLModel):
     name: str
     contract_address: str | None = None
     apr: float | None = None
+    ytd_apy: float | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     max_drawdown: float | None = None

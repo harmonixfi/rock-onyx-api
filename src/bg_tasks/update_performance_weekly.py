@@ -126,29 +126,20 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
     start_of_year = datetime(now.year, 1, 1)
     price_per_share_start = session.exec(
         select(PricePerShareHistory)
-        .where(PricePerShareHistory.vault_id == vault.id)
+        .where(PricePerShareHistory.vault_id == vault.id and PricePerShareHistory.datetime >= start_of_year)
         .order_by(PricePerShareHistory.datetime.asc())
     ).first()
 
-    if price_per_share_start.datetime - start_of_year > timedelta(days=365):
-        price_per_share_start = session.exec(
-            select(PricePerShareHistory)
-            .where(
-                PricePerShareHistory.vault_id == vault.id
-                and PricePerShareHistory.datetime >= start_of_year
-            )
-            .order_by(PricePerShareHistory.datetime.asc())
-        ).first()
+    prev_pps = price_per_share_start.price_per_share if price_per_share_start else 1
 
-    if price_per_share_start is not None:
-        # Calculate the APY
-        apy_ytd = calculate_roi(
-            current_price_per_share,
-            price_per_share_start.price_per_share,
-            days=(now - price_per_share_start.datetime).days,
-        )
+    # Calculate the APY
+    apy_ytd = calculate_roi(
+        current_price_per_share,
+        prev_pps,
+        days=(now - start_of_year).days,
+    )
 
-        return apy_ytd
+    return apy_ytd
 
 
 # Step 4: Calculate Performance Metrics
@@ -214,6 +205,7 @@ def main():
     session.add(new_performance_rec)
 
     # Update the vault with the new information
+    vault.ytd_apy = new_performance_rec.apy_ytd
     vault.monthly_apy = new_performance_rec.apy_1m
     vault.weekly_apy = new_performance_rec.apy_1w
     # vault.current_round = get_current_round()

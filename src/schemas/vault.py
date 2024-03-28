@@ -24,7 +24,7 @@ class VaultInDBBase(VaultBase):
 
 # Properties to return to client
 class Vault(VaultInDBBase):
-    pass
+    apy: float | None = None
 
 
 # Properties properties stored in DB
