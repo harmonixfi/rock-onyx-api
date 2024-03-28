@@ -56,8 +56,8 @@ def handle_event(vault_address: str, entry, eventName):
     if vault is None:
         raise ValueError("Vault not found")
 
-    logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
     vault: Vault = vault[0]
+    logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
 
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
