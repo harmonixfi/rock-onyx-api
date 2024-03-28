@@ -41,8 +41,8 @@ def _extract_delta_neutral_event(entry):
     from_address = f'0x{entry["topics"][1].hex()[26:]}'
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
-    amount = int(data[2:66], 16)
-    shares = int(data[66 : 66 + 64], 16)
+    amount = int(data[2:66], 16) / 1e6
+    shares = int(data[66 : 66 + 64], 16) / 1e6
     return amount, shares, from_address
 
 
@@ -73,8 +73,6 @@ def handle_event(vault_address: str, entry, eventName):
         value, _, from_address = _extract_delta_neutral_event(entry)
     else:
         raise ValueError("Invalid vault address")
-
-    value = value / 1e6
 
     # Check if user with from_address has position in user_portfolio table
     user_portfolio = session.exec(
