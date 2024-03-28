@@ -14,7 +14,11 @@ from models.vault_performance import VaultPerformance
 from services.market_data import get_price
 
 # Connect to the Ethereum network
-w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+if settings.ENVIRONMENT_NAME == "Production":
+    w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+else:
+    w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
+
 token_abi = read_abi("ERC20")
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockOnyxUSDTVaultContract = w3.eth.contract(
@@ -126,7 +130,10 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
     start_of_year = datetime(now.year, 1, 1)
     price_per_share_start = session.exec(
         select(PricePerShareHistory)
-        .where(PricePerShareHistory.vault_id == vault.id and PricePerShareHistory.datetime >= start_of_year)
+        .where(
+            PricePerShareHistory.vault_id == vault.id
+            and PricePerShareHistory.datetime >= start_of_year
+        )
         .order_by(PricePerShareHistory.datetime.asc())
     ).first()
 
