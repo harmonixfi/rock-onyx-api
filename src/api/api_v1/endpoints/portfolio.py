@@ -13,17 +13,23 @@ from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
 from schemas import Position
 from utils.slug import slugify
+
 router = APIRouter()
+
 
 @router.get("/", response_model=schemas.Portfolio)
 async def get_all_portfolios(session: SessionDep):
 
-    statement = select(UserPortfolio).where(UserPortfolio.status == PositionStatus.ACTIVE)
+    statement = select(UserPortfolio).where(
+        UserPortfolio.status == PositionStatus.ACTIVE
+    )
     userportfolios = session.exec(statement).all()
     positions = []
     total_balance = 0.0
     for userportfolio in userportfolios:
-        vault = session.exec(select(Vault).where(Vault.id == userportfolio.vault_id)).one()
+        vault = session.exec(
+            select(Vault).where(Vault.id == userportfolio.vault_id)
+        ).one()
         position = Position(
             id=userportfolio.id,
             vault_id=userportfolio.vault_id,
@@ -41,20 +47,21 @@ async def get_all_portfolios(session: SessionDep):
             next_close_round_date=vault.next_close_round_date,
             monthly_apy=vault.monthly_apy,
             weekly_apy=vault.weekly_apy,
-            slug=slugify(vault.name)
+            slug=slugify(vault.name),
         )
         total_balance += userportfolio.total_balance
         positions.append(position)
 
-    portfolio = schemas.Portfolio(
-        total_balance=total_balance,
-        positions=positions
-    )  
+    portfolio = schemas.Portfolio(total_balance=total_balance, positions=positions)
     return portfolio
+
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(session: SessionDep, user_address: str):
-    statement = select(UserPortfolio).where(UserPortfolio.user_address == user_address and UserPortfolio.status == "ACTIVE")
+    
+    statement = select(UserPortfolio).where(
+        UserPortfolio.user_address == user_address.lower() and UserPortfolio.status == "ACTIVE"
+    )
     userportfolios = session.exec(statement).all()
 
     if userportfolios is None:
@@ -66,7 +73,9 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
     positions = []
     total_balance = 0.0
     for userportfolio in userportfolios:
-        vault = session.exec(select(Vault).where(Vault.id == userportfolio.vault_id)).one()
+        vault = session.exec(
+            select(Vault).where(Vault.id == userportfolio.vault_id)
+        ).one()
         position = Position(
             id=userportfolio.id,
             vault_id=userportfolio.vault_id,
@@ -84,12 +93,9 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
             next_close_round_date=vault.next_close_round_date,
             monthly_apy=vault.monthly_apy,
             weekly_apy=vault.weekly_apy,
-            slug=slugify(vault.name)
+            slug=slugify(vault.name),
         )
         total_balance += userportfolio.total_balance
         positions.append(position)
-    portfolio = schemas.Portfolio(
-        total_balance=total_balance,
-        positions=positions
-    )
+    portfolio = schemas.Portfolio(total_balance=total_balance, positions=positions)
     return portfolio
