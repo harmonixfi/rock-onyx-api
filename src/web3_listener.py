@@ -203,7 +203,7 @@ async def main():
             log_loop(
                 settings.ROCKONYX_STABLECOIN_ADDRESS,
                 wheel_deposit_event_filter,
-                2,
+                20,
                 "Deposit",
             )
         ),
@@ -211,7 +211,7 @@ async def main():
             log_loop(
                 settings.ROCKONYX_STABLECOIN_ADDRESS,
                 wheel_withdraw_event_filter,
-                2,
+                20,
                 "InitiateWithdraw",
             )
         ),
@@ -219,7 +219,7 @@ async def main():
             log_loop(
                 settings.ROCKONYX_STABLECOIN_ADDRESS,
                 wheel_withdraw_event_filter,
-                2,
+                20,
                 "CompleteWithdraw",
             )
         ),
@@ -227,7 +227,7 @@ async def main():
             log_loop(
                 settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 delta_neutral_deposit_event_filter,
-                2,
+                20,
                 "Deposit",
             )
         ),
@@ -235,7 +235,7 @@ async def main():
             log_loop(
                 settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 delta_neutral_withdraw_event_filter,
-                2,
+                20,
                 "CompleteWithdraw",
             )
         ),
