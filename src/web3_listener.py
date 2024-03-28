@@ -13,9 +13,9 @@ from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
 from datetime import datetime, timezone
 import logging
 
-# Initialize logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+# # Initialize logger
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
 if settings.ENVIRONMENT_NAME == "Production":
@@ -57,7 +57,7 @@ def handle_event(vault_address: str, entry, eventName):
         raise ValueError("Vault not found")
 
     vault: Vault = vault[0]
-    logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
+    print(f"Processing event {eventName} for vault {vault_address} {vault.name}")
 
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
@@ -78,7 +78,7 @@ def handle_event(vault_address: str, entry, eventName):
     else:
         raise ValueError("Invalid vault address")
     
-    logger.info(f"Value: {value}, from_address: {from_address}")
+    print(f"Value: {value}, from_address: {from_address}")
 
     # Check if user with from_address has position in user_portfolio table
     user_portfolio = session.exec(
@@ -103,14 +103,14 @@ def handle_event(vault_address: str, entry, eventName):
                 trade_start_date=datetime.now(timezone.utc),
             )
             session.add(user_portfolio)
-            logger.info(f"User with address {from_address} added to user_portfolio table")
+            print(f"User with address {from_address} added to user_portfolio table")
         else:
             # Update the user_portfolio
             user_portfolio = user_portfolio[0]
             user_portfolio.total_balance += value
             user_portfolio.init_deposit += value
             session.add(user_portfolio)
-            logger.info(f"User with address {from_address} updated in user_portfolio table")
+            print(f"User with address {from_address} updated in user_portfolio table")
 
     elif eventName == "InitiateWithdraw":
         if user_portfolio is not None:
@@ -122,9 +122,9 @@ def handle_event(vault_address: str, entry, eventName):
                 session.add(user_portfolio)
 
             session.add(user_portfolio)
-            logger.info(f"User with address {from_address} updated in user_portfolio table")
+            print(f"User with address {from_address} updated in user_portfolio table")
         else:
-            logger.error(
+            print(
                 f"User with address {from_address} not found in user_portfolio table"
             )
 
@@ -137,9 +137,9 @@ def handle_event(vault_address: str, entry, eventName):
                 user_portfolio.trade_end_date = datetime.now(timezone.utc)
 
             session.add(user_portfolio)
-            logger.info(f"User with address {from_address} updated in user_portfolio table")
+            print(f"User with address {from_address} updated in user_portfolio table")
         else:
-            logger.error(
+            print(
                 f"User with address {from_address} not found in user_portfolio table"
             )
 
@@ -160,7 +160,7 @@ async def log_loop(vault_address, event_filter, poll_interval, eventName):
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
         except Exception as e:
-            logger.error(f"Error occurred: {e}")
+            print(f"Error occurred: {e}")
         await asyncio.sleep(poll_interval)
 
 
@@ -236,5 +236,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    setup_logging_to_console(level=logging.INFO, logger=logger)
+    # setup_logging_to_console(level=logging.INFO, logger=logger)
     asyncio.run(main())
