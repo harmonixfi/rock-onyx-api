@@ -76,6 +76,8 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
             price_per_share = wheel_options_contract.functions.pricePerShare().call()
             shares = wheel_options_contract.functions.balanceOf(Web3.to_checksum_address(user_address)).call()
 
+        shares = shares / 10 ** 6
+        price_per_share = price_per_share / 10 ** 6
         position.total_balance = shares * price_per_share
         position.pnl = position.total_balance - position.init_deposit
 
