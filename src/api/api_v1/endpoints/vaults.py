@@ -64,6 +64,8 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
         .where(VaultPerformance.vault_id == vault.id)
         .order_by(VaultPerformance.datetime.asc())
     ).all()
+    if len(perf_hist) == 0:
+        return {"date": [], "apy": []}
 
     # Convert the list of VaultPerformance objects to a DataFrame
     pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
