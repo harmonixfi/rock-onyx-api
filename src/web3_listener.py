@@ -18,9 +18,9 @@ logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
 if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL))
 else:
-    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
+    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
 
 session = Session(engine)
 
@@ -73,7 +73,7 @@ def handle_event(vault_address: str, entry, eventName):
         value, _, from_address = _extract_delta_neutral_event(entry)
     else:
         raise ValueError("Invalid vault address")
-    
+
     value = value / 1e6
 
     # Check if user with from_address has position in user_portfolio table
@@ -110,7 +110,7 @@ def handle_event(vault_address: str, entry, eventName):
             else:
                 user_portfolio.pending_withdrawal += value
                 session.add(user_portfolio)
-            
+
             session.add(user_portfolio)
         else:
             logger.error(
@@ -147,6 +147,8 @@ async def log_loop(vault_address, event_filter, poll_interval, eventName):
         except asyncio.TimeoutError:
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
+        except Exception as e:
+            logger.error(f"Error occurred: {e}")
         await asyncio.sleep(poll_interval)
 
 

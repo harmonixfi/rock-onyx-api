@@ -24,6 +24,7 @@ class Position(BaseModel):
 
 class PortfolioBase(BaseModel):
     total_balance: float
+    pnl: float
     positions: List[Position] | None = None
 
 
