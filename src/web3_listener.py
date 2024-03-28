@@ -55,7 +55,7 @@ def handle_event(vault_address: str, entry, eventName):
     if vault is None:
         raise ValueError("Vault not found")
 
-    vault = vault[0]
+    vault: Vault = vault[0]
 
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
@@ -76,7 +76,11 @@ def handle_event(vault_address: str, entry, eventName):
 
     # Check if user with from_address has position in user_portfolio table
     user_portfolio = session.exec(
-        select(UserPortfolio).where(UserPortfolio.user_address == from_address)
+        select(UserPortfolio).where(
+            UserPortfolio.user_address == from_address
+            and UserPortfolio.vault_id == vault.id
+            and UserPortfolio.status == PositionStatus.ACTIVE
+        )
     ).first()
 
     if eventName == "Deposit":
