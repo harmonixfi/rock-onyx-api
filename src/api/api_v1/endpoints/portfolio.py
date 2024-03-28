@@ -33,9 +33,10 @@ delta_neutral_contract = w3.eth.contract(
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(session: SessionDep, user_address: str):
 
-    statement = select(UserPortfolio).where(
-        UserPortfolio.user_address == user_address.lower()
-        and UserPortfolio.status == "ACTIVE"
+    statement = (
+        select(UserPortfolio)
+        .where(UserPortfolio.user_address == user_address.lower())
+        .where(UserPortfolio.status == "ACTIVE")
     )
     user_positions = session.exec(statement).all()
 
@@ -71,13 +72,17 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
 
         if vault.contract_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
             price_per_share = delta_neutral_contract.functions.pricePerShare().call()
-            shares = delta_neutral_contract.functions.balanceOf(Web3.to_checksum_address(user_address)).call()
+            shares = delta_neutral_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
         else:
             price_per_share = wheel_options_contract.functions.pricePerShare().call()
-            shares = wheel_options_contract.functions.balanceOf(Web3.to_checksum_address(user_address)).call()
+            shares = wheel_options_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
 
-        shares = shares / 10 ** 6
-        price_per_share = price_per_share / 10 ** 6
+        shares = shares / 10**6
+        price_per_share = price_per_share / 10**6
         position.total_balance = shares * price_per_share
         position.pnl = position.total_balance - position.init_deposit
 
