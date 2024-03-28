@@ -8,6 +8,7 @@ from web3 import Web3
 
 from core.db import engine
 from core.config import settings
+from log import setup_logging_to_console
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
 from datetime import datetime, timezone
 import logging
@@ -55,11 +56,14 @@ def handle_event(vault_address: str, entry, eventName):
     if vault is None:
         raise ValueError("Vault not found")
 
+    logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
     vault: Vault = vault[0]
 
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
-        select(PricePerShareHistory).order_by(PricePerShareHistory.datetime.desc())
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault.id)
+        .order_by(PricePerShareHistory.datetime.desc())
     ).first()
     if latest_pps is not None:
         latest_pps = latest_pps[0].price_per_share
@@ -73,6 +77,8 @@ def handle_event(vault_address: str, entry, eventName):
         value, _, from_address = _extract_delta_neutral_event(entry)
     else:
         raise ValueError("Invalid vault address")
+    
+    logger.info(f"Value: {value}, from_address: {from_address}")
 
     # Check if user with from_address has position in user_portfolio table
     user_portfolio = session.exec(
@@ -97,12 +103,14 @@ def handle_event(vault_address: str, entry, eventName):
                 trade_start_date=datetime.now(timezone.utc),
             )
             session.add(user_portfolio)
+            logger.info(f"User with address {from_address} added to user_portfolio table")
         else:
             # Update the user_portfolio
             user_portfolio = user_portfolio[0]
             user_portfolio.total_balance += value
             user_portfolio.init_deposit += value
             session.add(user_portfolio)
+            logger.info(f"User with address {from_address} updated in user_portfolio table")
 
     elif eventName == "InitiateWithdraw":
         if user_portfolio is not None:
@@ -114,6 +122,7 @@ def handle_event(vault_address: str, entry, eventName):
                 session.add(user_portfolio)
 
             session.add(user_portfolio)
+            logger.info(f"User with address {from_address} updated in user_portfolio table")
         else:
             logger.error(
                 f"User with address {from_address} not found in user_portfolio table"
@@ -128,6 +137,7 @@ def handle_event(vault_address: str, entry, eventName):
                 user_portfolio.trade_end_date = datetime.now(timezone.utc)
 
             session.add(user_portfolio)
+            logger.info(f"User with address {from_address} updated in user_portfolio table")
         else:
             logger.error(
                 f"User with address {from_address} not found in user_portfolio table"
@@ -226,4 +236,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console(level=logging.INFO, logger=logger)
     asyncio.run(main())
