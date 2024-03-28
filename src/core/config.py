@@ -45,8 +45,11 @@ class Settings(BaseSettings):
     ARBITRUM_MAINNET_INFURA_URL: str = (
         "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
+    ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str = (
+        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
+    )
     SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://morning-distinguished-dream.ethereum-sepolia.quiknode.pro/4c29b83d4282a066bc116842a183fffecf764d3f"
+        "wss://sepolia.infura.io/ws/v3/85cde589ce754dafa0a57001c326104d"
     )
 
     SEPOLIA_TESTNET_INFURA_URL: str = (

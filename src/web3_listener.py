@@ -18,9 +18,9 @@ logger.setLevel(logging.INFO)
 
 # filter through blocks and look for transactions involving this address
 if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL))
 else:
-    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
+    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
 
 session = Session(engine)
 
