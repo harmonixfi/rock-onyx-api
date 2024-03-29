@@ -205,7 +205,7 @@ def calculate_performance(vault_id: uuid.UUID):
 # Main Execution
 def main():
     # Get the vault from the Vault table with name = "Stablecoin Vault"
-    vault = session.exec(select(Vault).where(Vault.name == "Stable Coin Vault")).first()
+    vault = session.exec(select(Vault).where(Vault.name == "Options Wheel Vault")).first()
 
     new_performance_rec = calculate_performance(vault.id)
     # Add the new performance record to the session and commit
