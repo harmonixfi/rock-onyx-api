@@ -49,7 +49,8 @@ def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
 
 
 def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
-    today = datetime.now().date()
+    # update today to hour with minute = 0 and second = 0
+    today = datetime.now().replace(minute=0, second=0, microsecond=0)
 
     # Check if a PricePerShareHistory record for today already exists
     existing_pps = session.exec(
@@ -159,7 +160,7 @@ def calculate_performance(vault_id: uuid.UUID):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
     # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 

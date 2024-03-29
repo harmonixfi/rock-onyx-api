@@ -79,7 +79,7 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 
     # Convert the date column to string format
-    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%d")
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
 
     # Convert the DataFrame to a dictionary and return it
