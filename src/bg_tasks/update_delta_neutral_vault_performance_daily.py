@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timedelta
 
 import pandas as pd
+import pendulum
 from sqlmodel import Session, select
 from web3 import Web3
 
@@ -50,7 +51,7 @@ def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
 
 def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     # update today to hour with minute = 0 and second = 0
-    today = datetime.now().replace(minute=0, second=0, microsecond=0)
+    today = pendulum.now(tz=pendulum.UTC).replace(minute=0, second=0, microsecond=0)
 
     # Check if a PricePerShareHistory record for today already exists
     existing_pps = session.exec(
@@ -80,25 +81,31 @@ def calculate_roi(after: float, before: float, days: int) -> float:
     return annualized_roi
 
 
-def get_before_price_per_shares(vault_id: uuid.UUID, days: int):
-    target_date = datetime.now() - timedelta(days=days)
+def get_before_price_per_shares(vault_id: uuid.UUID, days: int) -> PricePerShareHistory:
+    target_date = pendulum.now(tz=pendulum.UTC) - timedelta(days=days)
 
     # Get the PricePerShareHistory records before the target date and order them by datetime in descending order
+
     pps_history = session.exec(
         select(PricePerShareHistory)
-        .where(
-            PricePerShareHistory.vault_id == vault_id,
-            PricePerShareHistory.datetime <= target_date,
-        )
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .where(PricePerShareHistory.datetime <= target_date)
         .order_by(PricePerShareHistory.datetime.desc())
+        .limit(3)
     ).all()
 
     # If there are any records, return the price per share of the most recent one
     if pps_history:
-        return pps_history[0].price_per_share
+        return pps_history[0]
 
+    pps_history = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.asc())
+    ).first()
     # If there are no records before the target date, return None
-    return 1
+    # and the first record of pps_history datetime
+    return pps_history
 
 
 def get_current_pps():
@@ -118,28 +125,31 @@ def get_current_tvl():
 
 
 def get_next_friday():
-    today = datetime.today()
-    next_friday = today + timedelta((4 - today.weekday()) % 7)
+    today = pendulum.now(tz=pendulum.UTC)
+    next_friday = today.next(pendulum.FRIDAY)
     next_friday = next_friday.replace(hour=8, minute=0, second=0, microsecond=0)
     return next_friday
 
 
 def get_next_day():
-    today = datetime.today()
-    next_day = today + timedelta(1)
+    today = pendulum.now(tz=pendulum.UTC).today()
+    next_day = today.add(days=1)
     next_day = next_day.replace(hour=8, minute=0, second=0, microsecond=0)
     return next_day
 
 
 def calculate_apy_ytd(vault_id, current_price_per_share):
-    now = datetime.now()
+    now = pendulum.now(tz=pendulum.UTC)
     vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
 
     # Get the start of the year or the first logged price per share
-    start_of_year = datetime(now.year, 1, 1)
+    start_of_year = pendulum.datetime(now.year, 1, 1, tz="UTC")
     price_per_share_start = session.exec(
         select(PricePerShareHistory)
-        .where(PricePerShareHistory.vault_id == vault.id and PricePerShareHistory.datetime >= start_of_year)
+        .where(
+            PricePerShareHistory.vault_id == vault.id
+            and PricePerShareHistory.datetime >= start_of_year
+        )
         .order_by(PricePerShareHistory.datetime.asc())
     ).first()
 
@@ -171,13 +181,17 @@ def calculate_performance(vault_id: uuid.UUID):
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(vault_id, days=30)
+    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(pendulum.UTC)
+    days = min((pendulum.now(tz=pendulum.UTC) - month_ago_datetime).days, 30)
     monthly_apy = calculate_roi(
-        current_price_per_share, month_ago_price_per_share, days=30
+        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
 
     week_ago_price_per_share = get_before_price_per_shares(vault_id, days=7)
+    week_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(pendulum.UTC)
+    days = min((pendulum.now(tz=pendulum.UTC) - week_ago_datetime).days, 7)
     weekly_apy = calculate_roi(
-        current_price_per_share, week_ago_price_per_share, days=7
+        current_price_per_share, week_ago_price_per_share.price_per_share, days=days
     )
 
     apy_ytd = calculate_apy_ytd(vault_id, current_price_per_share)
