@@ -8,7 +8,7 @@ from web3 import Web3
 
 from core.db import engine
 from core.config import settings
-from log import setup_logging_to_console, setup_logging_to_file
+from log import setup_logging_to_file
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
 from datetime import datetime, timezone
 import logging
