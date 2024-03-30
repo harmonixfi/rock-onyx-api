@@ -167,11 +167,13 @@ async def log_loop(vault_address, event_filter, poll_interval, eventName):
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
         except Exception as e:
-            logger.info(f"Error occurred: {e}")
+            raise e
+
         await asyncio.sleep(poll_interval)
 
 
-async def main():
+# Create event filters for the stablecoin vault
+def create_event_filter():
     wheel_deposit_event_filter = w3.eth.filter(
         {
             "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
@@ -197,49 +199,72 @@ async def main():
             "topics": [settings.DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC],
         }
     )
-
-    await asyncio.gather(
-        asyncio.create_task(
-            log_loop(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                wheel_deposit_event_filter,
-                20,
-                "Deposit",
-            )
-        ),
-        asyncio.create_task(
-            log_loop(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                wheel_withdraw_event_filter,
-                20,
-                "InitiateWithdraw",
-            )
-        ),
-        asyncio.create_task(
-            log_loop(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                wheel_withdraw_event_filter,
-                20,
-                "CompleteWithdraw",
-            )
-        ),
-        asyncio.create_task(
-            log_loop(
-                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                delta_neutral_deposit_event_filter,
-                20,
-                "Deposit",
-            )
-        ),
-        asyncio.create_task(
-            log_loop(
-                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                delta_neutral_withdraw_event_filter,
-                20,
-                "CompleteWithdraw",
-            )
-        ),
+    return (
+        wheel_deposit_event_filter,
+        wheel_withdraw_event_filter,
+        delta_neutral_deposit_event_filter,
+        delta_neutral_withdraw_event_filter,
     )
+
+
+async def main():
+    while True:
+        try:
+            (
+                wheel_deposit_event_filter,
+                wheel_withdraw_event_filter,
+                delta_neutral_deposit_event_filter,
+                delta_neutral_withdraw_event_filter,
+            ) = create_event_filter()
+
+            await asyncio.gather(
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_STABLECOIN_ADDRESS,
+                        wheel_deposit_event_filter,
+                        20,
+                        "Deposit",
+                    )
+                ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_STABLECOIN_ADDRESS,
+                        wheel_withdraw_event_filter,
+                        20,
+                        "InitiateWithdraw",
+                    )
+                ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_STABLECOIN_ADDRESS,
+                        wheel_withdraw_event_filter,
+                        20,
+                        "CompleteWithdraw",
+                    )
+                ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                        delta_neutral_deposit_event_filter,
+                        20,
+                        "Deposit",
+                    )
+                ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                        delta_neutral_withdraw_event_filter,
+                        20,
+                        "CompleteWithdraw",
+                    )
+                ),
+            )
+        except Exception as e:
+            if e['code'] == -32000 and e['message'] == 'filter not found':
+                logger.info("Filter not found. Retrying...")
+                continue
+            else:
+                logger.info(f"Error occurred: {e}")
 
 
 if __name__ == "__main__":

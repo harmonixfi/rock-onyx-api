@@ -40,11 +40,9 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
     )
     user_positions = session.exec(statement).all()
 
-    if user_positions is None:
-        raise HTTPException(
-            status_code=400,
-            detail="The data not found in the database.",
-        )
+    if user_positions is None or len(user_positions) == 0:
+        portfolio = schemas.Portfolio(total_balance=0, pnl=0, positions=[])
+        return portfolio
 
     positions: List[Position] = []
     total_balance = 0.0
