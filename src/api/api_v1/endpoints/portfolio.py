@@ -1,3 +1,4 @@
+import datetime
 from typing import List
 
 from fastapi import APIRouter, HTTPException
@@ -48,6 +49,7 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
     total_balance = 0.0
     for position in user_positions:
         vault = session.exec(select(Vault).where(Vault.id == position.vault_id)).one()
+
         position = Position(
             id=position.id,
             vault_id=position.vault_id,
@@ -74,6 +76,13 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
                 Web3.to_checksum_address(user_address)
             ).call()
         else:
+
+            # calculate next Friday from today
+            position.next_close_round_date = (
+                datetime.datetime.now()
+                + datetime.timedelta(days=(4 - datetime.datetime.now().weekday()) % 7)
+            ).replace(hour=8, minute=0, second=0)
+
             price_per_share = wheel_options_contract.functions.pricePerShare().call()
             shares = wheel_options_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
