@@ -3,7 +3,7 @@
 This repository contains the backend for the **Rock Onyx Vault** project, built using **FastAPI**.
 
 ## Introduction
-**Rock Onyx Vault** is a secure and efficient data storage solution. It provides a RESTful API for managing data, user authentication, and more. The backend is built with **FastAPI**, a modern web framework for building APIs with Python.
+**Rock Onyx Vault** is a platform which provides automated Vaults with various strategies to maximize your returns with low risk. The backend is built with **FastAPI**, a modern web framework for building APIs with Python.
 
 ## Features
 - **Fast Performance**: Rock Onyx Vault leverages FastAPI's high-performance capabilities, making it one of the fastest Python frameworks available.
