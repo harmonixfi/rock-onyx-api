@@ -7,6 +7,7 @@ from web3 import Web3
 
 from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
+from models.user_portfolio import PositionStatus
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault, UserPortfolio
@@ -38,7 +39,7 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
     statement = (
         select(UserPortfolio)
         .where(UserPortfolio.user_address == user_address.lower())
-        .where(UserPortfolio.status == "ACTIVE")
+        .where(UserPortfolio.status == PositionStatus.ACTIVE)
     )
     user_positions = session.exec(statement).all()
 
@@ -96,7 +97,7 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
 
         holding_period = (datetime.datetime.now() - position.trade_start_date).days
         position.apy = calculate_roi(
-            position.total_balance, position.init_deposit, days=holding_period
+            position.total_balance, position.init_deposit, days=holding_period if holding_period > 0 else 1
         )
         position.apy *= 100
 
