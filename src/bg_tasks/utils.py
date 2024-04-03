@@ -33,3 +33,10 @@ def get_before_price_per_shares(
     # If there are no records before the target date, return None
     # and the first record of pps_history datetime
     return pps_history
+
+
+def calculate_roi(after: float, before: float, days: int) -> float:
+    # calculate our annualized return for a vault
+    pps_delta = (after - before) / (before or 1)
+    annualized_roi = (1 + pps_delta) ** (365.2425 / days) - 1
+    return annualized_roi

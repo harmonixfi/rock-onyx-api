@@ -20,6 +20,7 @@ class Position(BaseModel):
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     slug: str | None = None
+    apy: str | None = None
 
 
 class PortfolioBase(BaseModel):

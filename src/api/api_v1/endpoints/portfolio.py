@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 from web3 import Web3
 
+from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
 import schemas
 from api.api_v1.deps import SessionDep
@@ -92,6 +93,12 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
         price_per_share = price_per_share / 10**6
         position.total_balance = shares * price_per_share
         position.pnl = position.total_balance - position.init_deposit
+
+        holding_period = (datetime.datetime.now() - position.trade_start_date).days
+        position.apy = calculate_roi(
+            position.total_balance, position.init_deposit, days=holding_period
+        )
+        position.apy *= 100
 
         total_balance += position.total_balance
         positions.append(position)

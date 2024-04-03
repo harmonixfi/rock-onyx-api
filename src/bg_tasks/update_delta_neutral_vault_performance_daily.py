@@ -6,7 +6,7 @@ import pendulum
 from sqlmodel import Session, select
 from web3 import Web3
 
-from bg_tasks.utils import get_before_price_per_shares
+from bg_tasks.utils import get_before_price_per_shares, calculate_roi
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -73,16 +73,6 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
         session.add(new_pps)
 
     session.commit()
-
-
-def calculate_roi(after: float, before: float, days: int) -> float:
-    # calculate our annualized return for a vault
-    pps_delta = (after - before) / (before or 1)
-    annualized_roi = (1 + pps_delta) ** (365.2425 / days) - 1
-    return annualized_roi
-
-
-
 
 
 def get_current_pps():
@@ -158,14 +148,18 @@ def calculate_performance(vault_id: uuid.UUID):
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
-    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(pendulum.UTC)
+    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
+        pendulum.UTC
+    )
     days = min((pendulum.now(tz=pendulum.UTC) - month_ago_datetime).days, 30)
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=7)
-    week_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(pendulum.UTC)
+    week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
+        pendulum.UTC
+    )
     days = min((pendulum.now(tz=pendulum.UTC) - week_ago_datetime).days, 7)
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share.price_per_share, days=days
