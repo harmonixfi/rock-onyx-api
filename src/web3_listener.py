@@ -9,7 +9,7 @@ from web3 import Web3
 from core.db import engine
 from core.config import settings
 from log import setup_logging_to_file
-from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
+from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus, Transaction
 from datetime import datetime, timezone
 import logging
 
@@ -55,8 +55,18 @@ def handle_event(vault_address: str, entry, eventName):
 
     if vault is None:
         raise ValueError("Vault not found")
-
     vault: Vault = vault[0]
+
+    transaction = session.exec(
+        select(Transaction).where(Transaction.txhash == entry['transactionHash'])
+    ).first()
+    if transaction is None:
+        transaction = Transaction(
+            txhash=entry['transactionHash'],
+        )
+        session.add(transaction)
+    else:
+        logger.info(f"Transaction with txhash {entry['transactionHash']} already exists")
     logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
 
     # Get the latest pps from pps_history table
@@ -268,5 +278,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    # setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
     asyncio.run(main())

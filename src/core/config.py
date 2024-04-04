@@ -66,8 +66,8 @@ class Settings(BaseSettings):
     STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
     STABLECOIN_WITHDRAW_VAULT_FILTER_TOPICS: str = "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
 
-    DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str
-    DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC: str
+    DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC :str ="0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
+    DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC :str ="0x81c99f08edcb66d12ab4059f45e99ee1d23632349defad6952143ef4433ae4c4"
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_API_URL: Optional[str]= None
     NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str]= None
     NEXT_PUBLIC_USDC_ADDRESS: Optional[str]= None
+
+    ARBISCAN_API_KEY: str
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

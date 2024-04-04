@@ -25,7 +25,7 @@ def event_data():
         "transactionHash": "0xcf7fd3f78a02f233cd7bbb64aec516997aad6212cf86d0599d7db5021aa38f6c",
         "blockHash": "0x4874e743d6e778c5b4af1c0547f7bf5f8d6bcfae8541022d9b1959ce7d41da9f",
         "blockNumber": 192713205,
-        "address": "0x0DA580405B03764EB10435E10E506574ffDC6eCb",
+        "address": "0x01CdC1dc16c677dfD4cFDE4478aAA494954657a0",
         "data": HexBytes("0x0000000000000000000000000000000000000000000000000000000001312d000000000000000000000000000000000000000000000000000000000001312d00"),
         "topics": [
             HexBytes("0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"),
@@ -43,13 +43,14 @@ def clean_user_portfolio(db_session: Session):
 @patch("web3_listener._extract_stablecoin_event")
 def test_handle_event_deposit(mock_extract_event, event_data, db_session: Session):
     mock_extract_event.return_value = (
+        20,
         100,
         "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
     )  # amount, from_address
     amount = 20_000000
     shares = 20_000000
     event_data['data'] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
-    handle_event("0x0DA580405B03764EB10435E10E506574ffDC6eCb", event_data, "Deposit")
+    handle_event("0x01CdC1dc16c677dfD4cFDE4478aAA494954657a0", event_data, "Deposit")
     user_portfolio = db_session.query(UserPortfolio).filter(
         UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
     ).first()
@@ -60,6 +61,7 @@ def test_handle_event_deposit(mock_extract_event, event_data, db_session: Sessio
 @patch("web3_listener._extract_stablecoin_event")
 def test_handle_event_deposit_then_init_withdraw(mock_extract_event, event_data, db_session: Session):
     mock_extract_event.return_value = (
+        20,
         100,
         "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
     )  # amount, from_address
