@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
+from websockets import ConnectionClosedError
 
 from core.db import engine
 from core.config import settings
@@ -17,12 +18,16 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# filter through blocks and look for transactions involving this address
-if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL))
-else:
-    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
+def init_web3():
+    # filter through blocks and look for transactions involving this address
+    if settings.ENVIRONMENT_NAME == "Production":
+        w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL))
+    else:
+        w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
+    
+    return w3
 
+w3 = init_web3()
 session = Session(engine)
 
 
@@ -208,6 +213,8 @@ def create_event_filter():
 
 
 async def main():
+    global w3
+    
     while True:
         try:
             (
@@ -259,10 +266,14 @@ async def main():
                     )
                 ),
             )
+        except ConnectionClosedError as e:
+            logger.error(f"Connection closed error: {e}")
+            w3 = init_web3()
+            continue
         except Exception as e:
-            if e['code'] == -32000 and e['message'] == 'filter not found':
+            logger.error(e)
+            if "-32000" in str(e) and "filter not found" in str(e):
                 logger.info("Filter not found. Retrying...")
-                continue
             else:
                 logger.info(f"Error occurred: {e}")
 
