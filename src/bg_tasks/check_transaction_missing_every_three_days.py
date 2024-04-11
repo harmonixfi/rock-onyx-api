@@ -10,15 +10,20 @@ from sqlmodel import Session
 from sqlalchemy import select
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus, Transaction
 import logging
-from datetime import datetime, timezone
-import time
+from datetime import datetime, timedelta, timezone
+from dateutil.relativedelta import relativedelta, FR
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+START_BLOCK = 0
+END_BLOCK = 99999999
+OFFSET = 100
+THREE_DAYS_AGO = 12 * 24 * 60 * 60
 
 stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
 delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS
 api_key = settings.ARBISCAN_API_KEY
+url = settings.ARBISCAN_GET_TRANSACTIONS_URL
 
 session = Session(engine)
 
@@ -27,41 +32,66 @@ def decode_transaction_input(transaction):
     transaction_amount = transaction_amount / 1e6
     return transaction_amount
 
+def calculate_avg_entry_price(user_portfolio, latest_pps, shares):
+    if user_portfolio.total_shares == None:
+        user_portfolio.total_shares = 0
+    avg_entry_price = (user_portfolio.total_shares * user_portfolio.entry_price + latest_pps * shares) / (user_portfolio.total_shares + shares)
+    return avg_entry_price
+
+def get_transactions(vault_address, page):
+    api_url = f"{url}&address={vault_address}&startblock={START_BLOCK}&endblock={END_BLOCK}&page={page}&offset={OFFSET}&sort=desc&apikey={api_key}"
+    response = requests.get(api_url)
+    response_json = response.json()
+    transactions = response_json['result']
+    return transactions
+
 def check_missing_transactions():
-    startblock = 0
-    endblock = 99999999
-    offset = 10
-    url = "https://api.arbiscan.io/api?module=account&action=txlist"
+    
     address = [stablecoin_vault_address, delta_neutral_vault_abi]
-    timestamp_three_days_ago = float(datetime.now().timestamp()) - (24 * 24 * 60 * 60)
+    timestamp_three_days_ago = float(datetime.now().timestamp()) - THREE_DAYS_AGO
     flag = True
+
     for vault_address in address:
+
+        vault = session.exec(
+            select(Vault).where(Vault.contract_address == vault_address)
+        ).first()
+        if vault is None:
+            raise ValueError("Vault not found")
+        vault: Vault = vault[0]
+
         page = 1
+        
+
         while flag:
-            api_url = f"{url}&address={vault_address}&startblock={startblock}&endblock={endblock}&page={page}&offset={offset}&sort=desc&apikey={api_key}"
-            response = requests.get(api_url)
-            response_json = response.json()
-            transactions = response_json['result']
+            transactions = get_transactions(vault_address, page)
+            if transactions == 'Max rate limit reached':
+                break
+
             for transaction in transactions:
                 transaction_timestamp = float(transaction['timeStamp'])
                 if transaction_timestamp > timestamp_three_days_ago:
                     from_address = transaction['from']
-                    vault = session.exec(
-                        select(Vault).where(Vault.contract_address == vault_address)
-                    ).first()
 
-                    if vault is None:
-                        raise ValueError("Vault not found")
-                    vault: Vault = vault[0]
-                    latest_pps = session.exec(
+                    transaction_date = datetime.utcfromtimestamp(int(transaction['timeStamp']))
+                    transaction_date = datetime(transaction_date.year, transaction_date.month, transaction_date.day)
+                    #get price per share from range friday to friday
+                    last_friday = transaction_date + relativedelta(weekday=FR(-1))
+                    this_thursday = last_friday + timedelta(days=6)
+
+                    history_pps = session.exec(
                         select(PricePerShareHistory)
                         .where(PricePerShareHistory.vault_id == vault.id)
+                        .where(PricePerShareHistory.datetime >= last_friday)
+                        .where(PricePerShareHistory.datetime <= this_thursday)
                         .order_by(PricePerShareHistory.datetime.desc())
                     ).first()
-                    if latest_pps is not None:
-                        latest_pps = latest_pps[0].price_per_share
+
+                    if history_pps is not None:
+                        history_pps = history_pps[0].price_per_share
                     else:
-                        latest_pps = 1
+                        history_pps = 1
+                        
                     user_portfolio = session.exec(
                         select(UserPortfolio)
                         .where(UserPortfolio.user_address == from_address)
@@ -87,10 +117,11 @@ def check_missing_transactions():
                                     user_address=from_address,
                                     total_balance=value,
                                     init_deposit=value,
-                                    entry_price=latest_pps,
+                                    entry_price=history_pps,
                                     pnl=0,
                                     status=PositionStatus.ACTIVE,
                                     trade_start_date=datetime.now(timezone.utc),
+                                    total_shares=value/history_pps
                                 )
                                 session.add(user_portfolio)
                                 logger.info(
@@ -101,6 +132,8 @@ def check_missing_transactions():
                                 user_portfolio = user_portfolio[0]
                                 user_portfolio.total_balance += value
                                 user_portfolio.init_deposit += value
+                                user_portfolio.entry_price = calculate_avg_entry_price(user_portfolio, history_pps, value)
+                                user_portfolio.total_shares += value/history_pps
                                 session.add(user_portfolio)
                                 logger.info(
                                     f"User with address {from_address} updated in user_portfolio table"
@@ -114,6 +147,7 @@ def check_missing_transactions():
             if not flag:
                 break
     session.commit()
+
 
 if __name__ == "__main__":
     check_missing_transactions()
