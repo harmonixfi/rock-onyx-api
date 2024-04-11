@@ -49,7 +49,7 @@ class Settings(BaseSettings):
         "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
     )
     SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://arbitrum-mainnet.infura.io/ws/v3/85cde589ce754dafa0a57001c326104d"
+        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
     )
 
     SEPOLIA_TESTNET_INFURA_URL: str = (
