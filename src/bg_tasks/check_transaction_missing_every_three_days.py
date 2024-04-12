@@ -12,13 +12,14 @@ from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus, T
 import logging
 from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta, FR
+from utils.calculate_price import calculate_avg_entry_price
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 START_BLOCK = 0
 END_BLOCK = 99999999
 OFFSET = 100
-THREE_DAYS_AGO = 3 * 24 * 60 * 60
+THREE_DAYS_AGO = 12 * 24 * 60 * 60
 
 stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
 delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS
@@ -31,12 +32,6 @@ def decode_transaction_input(transaction):
     transaction_amount = int(transaction['input'][10:], 16)
     transaction_amount = transaction_amount / 1e6
     return transaction_amount
-
-def calculate_avg_entry_price(user_portfolio, latest_pps, shares):
-    if user_portfolio.total_shares == None:
-        user_portfolio.total_shares = 0
-    avg_entry_price = (user_portfolio.total_shares * user_portfolio.entry_price + latest_pps * shares) / (user_portfolio.total_shares + shares)
-    return avg_entry_price
 
 def get_transactions(vault_address, page):
     api_url = f"{url}&address={vault_address}&startblock={START_BLOCK}&endblock={END_BLOCK}&page={page}&offset={OFFSET}&sort=desc&apikey={api_key}"
