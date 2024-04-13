@@ -127,8 +127,8 @@ def handle_event(vault_address: str, entry, eventName):
                 user_portfolio.pending_withdrawal = value
             else:
                 user_portfolio.pending_withdrawal += value
-                session.add(user_portfolio)
-
+            
+            user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
             session.add(user_portfolio)
             logger.info(
                 f"User with address {from_address} updated in user_portfolio table"

@@ -24,3 +24,4 @@ class UserPortfolio(SQLModel, table=True):
     status: PositionStatus = Field(default=PositionStatus.ACTIVE)
     trade_start_date: datetime = Field(default=datetime.now(tz=timezone.utc))
     trade_end_date: datetime = Field(default=datetime.now(tz=timezone.utc))
+    initiated_withdrawal_at: datetime = Field(default=None, nullable=True)
