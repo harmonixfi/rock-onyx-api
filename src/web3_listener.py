@@ -1,6 +1,7 @@
 # import dependencies
 import asyncio
 from datetime import datetime, timezone
+import traceback
 
 from sqlalchemy import select
 from sqlmodel import Session
@@ -171,7 +172,11 @@ async def log_loop(vault_address, event_filter, poll_interval, eventName):
             # Add a timeout to the get_new_entries() method
             events = event_filter.get_new_entries()
             for event in events:
-                handle_event(vault_address, event, eventName)
+                try:
+                    handle_event(vault_address, event, eventName)
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(traceback.format_exc())
         except asyncio.TimeoutError:
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
