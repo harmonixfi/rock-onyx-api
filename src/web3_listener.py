@@ -42,14 +42,17 @@ def _extract_stablecoin_event(entry):
     value = int(data[2:66], 16) / 1e6
     shares = int("0x" + data[66:], 16) / 1e6
 
-    # Decode the from address
-    from_address = f'0x{entry["topics"][1].hex()[26:]}'
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
     return value, shares, from_address
 
 
 def _extract_delta_neutral_event(entry):
     # Parse the account parameter from the topics field
-    from_address = f'0x{entry["topics"][1].hex()[26:]}'
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     amount = int(data[2:66], 16) / 1e6
