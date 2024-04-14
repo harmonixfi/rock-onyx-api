@@ -20,6 +20,8 @@ class Position(BaseModel):
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     slug: str | None = None
+    apy: str | None = None
+    initiated_withdrawal_at: datetime | None = None
 
 
 class PortfolioBase(BaseModel):

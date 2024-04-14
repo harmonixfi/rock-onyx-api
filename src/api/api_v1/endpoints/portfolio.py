@@ -1,11 +1,13 @@
 import datetime
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import select
 from web3 import Web3
 
+from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
+from models.user_portfolio import PositionStatus
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault, UserPortfolio
@@ -32,13 +34,21 @@ delta_neutral_contract = w3.eth.contract(
 
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
-async def get_portfolio_info(session: SessionDep, user_address: str):
-
+async def get_portfolio_info(
+    session: SessionDep,
+    user_address: str,
+    vault_id: str = Query(
+        None, description="Vault Id"
+    ),
+):
     statement = (
         select(UserPortfolio)
         .where(UserPortfolio.user_address == user_address.lower())
-        .where(UserPortfolio.status == "ACTIVE")
+        .where(UserPortfolio.status == PositionStatus.ACTIVE)
     )
+    if vault_id:
+        statement.where(UserPortfolio.vault_id == vault_id)
+    
     user_positions = session.exec(statement).all()
 
     if user_positions is None or len(user_positions) == 0:
@@ -68,6 +78,7 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
             monthly_apy=vault.monthly_apy,
             weekly_apy=vault.weekly_apy,
             slug=vault.slug,
+            initiated_withdrawal_at=position.initiated_withdrawal_at,
         )
 
         if vault.contract_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
@@ -92,6 +103,14 @@ async def get_portfolio_info(session: SessionDep, user_address: str):
         price_per_share = price_per_share / 10**6
         position.total_balance = shares * price_per_share
         position.pnl = position.total_balance - position.init_deposit
+
+        holding_period = (datetime.datetime.now() - position.trade_start_date).days
+        position.apy = calculate_roi(
+            position.total_balance,
+            position.init_deposit,
+            days=holding_period if holding_period > 0 else 1,
+        )
+        position.apy *= 100
 
         total_balance += position.total_balance
         positions.append(position)
