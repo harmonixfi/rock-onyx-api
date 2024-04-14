@@ -1,3 +1,4 @@
+import pendulum
 from core.config import settings
 from core.db import engine
 from models import Vault
@@ -8,7 +9,13 @@ from core.config import settings
 import requests
 from sqlmodel import Session
 from sqlalchemy import select
-from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus, Transaction
+from models import (
+    PricePerShareHistory,
+    UserPortfolio,
+    Vault,
+    PositionStatus,
+    Transaction,
+)
 import logging
 from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta, FR
@@ -28,20 +35,35 @@ url = settings.ARBISCAN_GET_TRANSACTIONS_URL
 
 session = Session(engine)
 
+
 def decode_transaction_input(transaction):
-    transaction_amount = int(transaction['input'][10:], 16)
+    transaction_amount = int(transaction["input"][10:], 16)
     transaction_amount = transaction_amount / 1e6
     return transaction_amount
 
+
 def get_transactions(vault_address, page):
-    api_url = f"{url}&address={vault_address}&startblock={START_BLOCK}&endblock={END_BLOCK}&page={page}&offset={OFFSET}&sort=desc&apikey={api_key}"
+
+    query_params = {
+        "address": vault_address,
+        "startblock": START_BLOCK,
+        "endblock": END_BLOCK,
+        "page": page,
+        "offset": OFFSET,
+        "sort": "desc",
+        "apikey": api_key,
+    }
+    api_url = (
+        f"{url}{'&'.join(f'{key}={value}' for key, value in query_params.items())}"
+    )
     response = requests.get(api_url)
     response_json = response.json()
-    transactions = response_json['result']
+    transactions = response_json["result"]
     return transactions
 
+
 def check_missing_transactions():
-    
+
     address = [stablecoin_vault_address, delta_neutral_vault_abi]
     timestamp_three_days_ago = float(datetime.now().timestamp()) - THREE_DAYS_AGO
     flag = True
@@ -56,21 +78,26 @@ def check_missing_transactions():
         vault: Vault = vault[0]
 
         page = 1
-        
 
         while flag:
             transactions = get_transactions(vault_address, page)
-            if transactions == 'Max rate limit reached':
+            if transactions == "Max rate limit reached":
                 break
 
             for transaction in transactions:
-                transaction_timestamp = float(transaction['timeStamp'])
+                transaction_timestamp = float(transaction["timeStamp"])
                 if transaction_timestamp > timestamp_three_days_ago:
-                    from_address = transaction['from']
+                    from_address = transaction["from"]
 
-                    transaction_date = datetime.utcfromtimestamp(int(transaction['timeStamp']))
-                    transaction_date = datetime(transaction_date.year, transaction_date.month, transaction_date.day)
-                    #get price per share from range friday to friday
+                    transaction_date = pendulum.from_timestamp(
+                        int(transaction["timeStamp"]), tz=pendulum.UTC
+                    )
+                    transaction_date = datetime(
+                        transaction_date.year,
+                        transaction_date.month,
+                        transaction_date.day,
+                    )
+                    # get price per share from range friday to friday
                     last_friday = transaction_date + relativedelta(weekday=FR(-1))
                     this_thursday = last_friday + timedelta(days=6)
 
@@ -86,7 +113,7 @@ def check_missing_transactions():
                         history_pps = history_pps[0].price_per_share
                     else:
                         history_pps = 1
-                        
+
                     user_portfolio = session.exec(
                         select(UserPortfolio)
                         .where(UserPortfolio.user_address == from_address)
@@ -94,10 +121,12 @@ def check_missing_transactions():
                         .where(UserPortfolio.status == PositionStatus.ACTIVE)
                     ).first()
 
-                    if transaction['functionName'] == "deposit(uint256 amount)":
-                        transaction_hash = transaction['hash'] 
+                    if transaction["functionName"] == "deposit(uint256 amount)":
+                        transaction_hash = transaction["hash"]
                         existing_transaction = session.exec(
-                            select(Transaction).where(Transaction.txhash == transaction_hash)
+                            select(Transaction).where(
+                                Transaction.txhash == transaction_hash
+                            )
                         ).first()
                         if existing_transaction is None:
                             trx = Transaction(
@@ -106,7 +135,7 @@ def check_missing_transactions():
                             session.add(trx)
                             value = decode_transaction_input(transaction)
                             if user_portfolio is None:
-                            #Create new user_portfolio for this user address
+                                # Create new user_portfolio for this user address
                                 user_portfolio = UserPortfolio(
                                     vault_id=vault.id,
                                     user_address=from_address,
@@ -116,7 +145,7 @@ def check_missing_transactions():
                                     pnl=0,
                                     status=PositionStatus.ACTIVE,
                                     trade_start_date=datetime.now(timezone.utc),
-                                    total_shares=value/history_pps
+                                    total_shares=value / history_pps,
                                 )
                                 session.add(user_portfolio)
                                 logger.info(
@@ -127,14 +156,18 @@ def check_missing_transactions():
                                 user_portfolio = user_portfolio[0]
                                 user_portfolio.total_balance += value
                                 user_portfolio.init_deposit += value
-                                user_portfolio.entry_price = calculate_avg_entry_price(user_portfolio, history_pps, value)
-                                user_portfolio.total_shares += value/history_pps
+                                user_portfolio.entry_price = calculate_avg_entry_price(
+                                    user_portfolio, history_pps, value
+                                )
+                                user_portfolio.total_shares += value / history_pps
                                 session.add(user_portfolio)
                                 logger.info(
                                     f"User with address {from_address} updated in user_portfolio table"
                                 )
                         else:
-                            logger.info(f"Transaction with txhash {transaction_hash} already exists")
+                            logger.info(
+                                f"Transaction with txhash {transaction_hash} already exists"
+                            )
                 else:
                     flag = False
                     break
