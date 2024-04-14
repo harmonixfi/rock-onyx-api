@@ -10,7 +10,7 @@ from websockets import ConnectionClosedError
 
 from core.db import engine
 from core.config import settings
-from log import setup_logging_to_file
+from log import setup_logging_to_file, setup_logging_to_console
 from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
 from datetime import datetime, timezone
 import logging
@@ -197,12 +197,12 @@ def create_event_filter():
             "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
         }
     )
-    # wheel_init_withdraw_event_filter = w3.eth.filter(
-    #     {
-    #         "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-    #         "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
-    #     }
-    # )
+    wheel_init_withdraw_event_filter = w3.eth.filter(
+        {
+            "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+            "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
+        }
+    )
     wheel_complete_withdraw_event_filter = w3.eth.filter(
         {
             "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
@@ -230,7 +230,7 @@ def create_event_filter():
     )
     return (
         wheel_deposit_event_filter,
-        # wheel_init_withdraw_event_filter,
+        wheel_init_withdraw_event_filter,
         wheel_complete_withdraw_event_filter,
         delta_neutral_deposit_event_filter,
         delta_neutral_init_withdraw_event_filter,
@@ -245,7 +245,7 @@ async def main():
         try:
             (
                 wheel_deposit_event_filter,
-                # wheel_init_withdraw_event_filter,
+                wheel_init_withdraw_event_filter,
                 wheel_complete_withdraw_event_filter,
                 delta_neutral_deposit_event_filter,
                 delta_neutral_init_withdraw_event_filter,
@@ -261,14 +261,14 @@ async def main():
                         "Deposit",
                     )
                 ),
-                # asyncio.create_task(
-                #     log_loop(
-                #         settings.ROCKONYX_STABLECOIN_ADDRESS,
-                #         wheel_init_withdraw_event_filter,
-                #         20,
-                #         "InitiateWithdraw",
-                #     )
-                # ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_STABLECOIN_ADDRESS,
+                        wheel_init_withdraw_event_filter,
+                        20,
+                        "InitiateWithdraw",
+                    )
+                ),
                 asyncio.create_task(
                     log_loop(
                         settings.ROCKONYX_STABLECOIN_ADDRESS,
@@ -315,5 +315,6 @@ async def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console(level=logging.INFO, logger=logger)
     setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
     asyncio.run(main())
