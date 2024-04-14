@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     PROJECT_NAME: str
-    ETHER_MAINNET_INFURA_URL: str = None
+    ETHER_MAINNET_INFURA_URL: str | None = None
     ARBITRUM_MAINNET_INFURA_URL: str = (
         "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
