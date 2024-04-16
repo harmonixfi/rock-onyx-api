@@ -1,14 +1,16 @@
 # import dependencies
 import asyncio
 from datetime import datetime, timezone
+import traceback
 
 from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
+from websockets import ConnectionClosedError
 
 from core.db import engine
 from core.config import settings
-from log import setup_logging_to_file
+from log import setup_logging_to_file, setup_logging_to_console
 from models import (
     PricePerShareHistory,
     UserPortfolio,
@@ -24,12 +26,20 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# filter through blocks and look for transactions involving this address
-if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL))
-else:
-    w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
 
+def init_web3():
+    # filter through blocks and look for transactions involving this address
+    if settings.ENVIRONMENT_NAME == "Production":
+        w3 = Web3(
+            Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL)
+        )
+    else:
+        w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
+
+    return w3
+
+
+w3 = init_web3()
 session = Session(engine)
 
 
@@ -39,14 +49,17 @@ def _extract_stablecoin_event(entry):
     value = int(data[2:66], 16) / 1e6
     shares = int("0x" + data[66:], 16) / 1e6
 
-    # Decode the from address
-    from_address = f'0x{entry["topics"][1].hex()[26:]}'
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
     return value, shares, from_address
 
 
 def _extract_delta_neutral_event(entry):
     # Parse the account parameter from the topics field
-    from_address = f'0x{entry["topics"][1].hex()[26:]}'
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     amount = int(data[2:66], 16) / 1e6
@@ -146,8 +159,8 @@ def handle_event(vault_address: str, entry, eventName):
                 user_portfolio.pending_withdrawal = value
             else:
                 user_portfolio.pending_withdrawal += value
-                session.add(user_portfolio)
 
+            user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
             session.add(user_portfolio)
             logger.info(
                 f"User with address {from_address} updated in user_portfolio table"
@@ -186,7 +199,11 @@ async def log_loop(vault_address, event_filter, poll_interval, eventName):
             # Add a timeout to the get_new_entries() method
             events = event_filter.get_new_entries()
             for event in events:
-                handle_event(vault_address, event, eventName)
+                try:
+                    handle_event(vault_address, event, eventName)
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(traceback.format_exc())
         except asyncio.TimeoutError:
             # If a timeout occurs, just ignore it and continue with the next iteration
             continue
@@ -204,10 +221,16 @@ def create_event_filter():
             "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
         }
     )
-    wheel_withdraw_event_filter = w3.eth.filter(
+    wheel_init_withdraw_event_filter = w3.eth.filter(
         {
             "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-            "topics": [settings.STABLECOIN_WITHDRAW_VAULT_FILTER_TOPICS],
+            "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
+        }
+    )
+    wheel_complete_withdraw_event_filter = w3.eth.filter(
+        {
+            "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+            "topics": [settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS],
         }
     )
 
@@ -217,28 +240,40 @@ def create_event_filter():
             "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
         }
     )
-    delta_neutral_withdraw_event_filter = w3.eth.filter(
+    delta_neutral_init_withdraw_event_filter = w3.eth.filter(
         {
             "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-            "topics": [settings.DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC],
+            "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
+        }
+    )
+    delta_neutral_complete_withdraw_event_filter = w3.eth.filter(
+        {
+            "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+            "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
         }
     )
     return (
         wheel_deposit_event_filter,
-        wheel_withdraw_event_filter,
+        wheel_init_withdraw_event_filter,
+        wheel_complete_withdraw_event_filter,
         delta_neutral_deposit_event_filter,
-        delta_neutral_withdraw_event_filter,
+        delta_neutral_init_withdraw_event_filter,
+        delta_neutral_complete_withdraw_event_filter,
     )
 
 
 async def main():
+    global w3
+
     while True:
         try:
             (
                 wheel_deposit_event_filter,
-                wheel_withdraw_event_filter,
+                wheel_init_withdraw_event_filter,
+                wheel_complete_withdraw_event_filter,
                 delta_neutral_deposit_event_filter,
-                delta_neutral_withdraw_event_filter,
+                delta_neutral_init_withdraw_event_filter,
+                delta_neutral_complete_withdraw_event_filter,
             ) = create_event_filter()
 
             await asyncio.gather(
@@ -253,7 +288,7 @@ async def main():
                 asyncio.create_task(
                     log_loop(
                         settings.ROCKONYX_STABLECOIN_ADDRESS,
-                        wheel_withdraw_event_filter,
+                        wheel_init_withdraw_event_filter,
                         20,
                         "InitiateWithdraw",
                     )
@@ -261,7 +296,7 @@ async def main():
                 asyncio.create_task(
                     log_loop(
                         settings.ROCKONYX_STABLECOIN_ADDRESS,
-                        wheel_withdraw_event_filter,
+                        wheel_complete_withdraw_event_filter,
                         20,
                         "CompleteWithdraw",
                     )
@@ -277,20 +312,33 @@ async def main():
                 asyncio.create_task(
                     log_loop(
                         settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                        delta_neutral_withdraw_event_filter,
+                        delta_neutral_init_withdraw_event_filter,
+                        20,
+                        "InitiateWithdraw",
+                    )
+                ),
+                asyncio.create_task(
+                    log_loop(
+                        settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                        delta_neutral_complete_withdraw_event_filter,
                         20,
                         "CompleteWithdraw",
                     )
                 ),
             )
+        except ConnectionClosedError as e:
+            logger.error(f"Connection closed error: {e}")
+            w3 = init_web3()
+            continue
         except Exception as e:
-            if e["code"] == -32000 and e["message"] == "filter not found":
+            logger.error(e)
+            if "-32000" in str(e) and "filter not found" in str(e):
                 logger.info("Filter not found. Retrying...")
-                continue
             else:
                 logger.info(f"Error occurred: {e}")
 
 
 if __name__ == "__main__":
-    # setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    setup_logging_to_console(level=logging.INFO, logger=logger)
+    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
     asyncio.run(main())

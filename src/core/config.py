@@ -1,6 +1,6 @@
 import secrets
 from typing import Any, List, Optional, Union
-from pydantic import AnyHttpUrl, validator
+from pydantic import AnyHttpUrl, Extra, validator
 from pydantic_settings import BaseSettings
 
 from pydantic import (
@@ -10,16 +10,16 @@ from pydantic import (
     ValidationInfo,
     field_validator,
 )
+from web3 import Web3
 
 
 class Settings(BaseSettings):
-    
+
     ENVIRONMENT_NAME: str
 
     @property
     def is_production(self):
         return self.ENVIRONMENT_NAME == "Production"
-
 
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     PROJECT_NAME: str
-    ETHER_MAINNET_INFURA_URL: str = None
+    ETHER_MAINNET_INFURA_URL: str | None = None
     ARBITRUM_MAINNET_INFURA_URL: str = (
         "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
@@ -49,11 +49,11 @@ class Settings(BaseSettings):
         "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
     )
     SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://sepolia.infura.io/ws/v3/85cde589ce754dafa0a57001c326104d"
+        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
     )
 
     SEPOLIA_TESTNET_INFURA_URL: str = (
-        "https://sepolia.infura.io/v3/85cde589ce754dafa0a57001c326104d"
+        "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
 
     WALLET_ADDRESS: str
@@ -63,11 +63,25 @@ class Settings(BaseSettings):
     ROCKONYX_STABLECOIN_ADDRESS: str
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str
 
-    STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = "0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
-    STABLECOIN_WITHDRAW_VAULT_FILTER_TOPICS: str = "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
+    STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = Web3.solidity_keccak(
+        ["string"], ["Deposited(address,uint256,uint256)"]
+    ).hex()
+    STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS: str = Web3.solidity_keccak(
+        ["string"], ["InitiateWithdrawal(address,uint256,uint256)"]
+    ).hex()
+    STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,uint256,uint256)"]
+    ).hex()
 
-    DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC :str ="0x73a19dd210f1a7f902193214c0ee91dd35ee5b4d920cba8d519eca65a7b488ca"
-    DELTA_NEUTRAL_WITHDRAW_EVENT_TOPIC :str ="0x81c99f08edcb66d12ab4059f45e99ee1d23632349defad6952143ef4433ae4c4"
+    DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Deposited(address,uint256,uint256)"]
+    ).hex()
+    DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["RequestFunds(address,uint256,uint256)"]
+    ).hex()
+    DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,uint256,uint256)"]
+    ).hex()
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
@@ -75,12 +89,12 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     SQLALCHEMY_DATABASE_URI: PostgresDsn | None = None
 
-    PYTHONPATH: Optional[str]= None
-    NODE_ENV: Optional[str]= None
-    NEXT_PUBLIC_THIRD_WEB_CLIENT_ID: Optional[str]= None
-    NEXT_PUBLIC_API_URL: Optional[str]= None
-    NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str]= None
-    NEXT_PUBLIC_USDC_ADDRESS: Optional[str]= None
+    PYTHONPATH: Optional[str] = None
+    NODE_ENV: Optional[str] = None
+    NEXT_PUBLIC_THIRD_WEB_CLIENT_ID: Optional[str] = None
+    NEXT_PUBLIC_API_URL: Optional[str] = None
+    NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str] = None
+    NEXT_PUBLIC_USDC_ADDRESS: Optional[str] = None
 
     ARBISCAN_API_KEY: str
     ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"
@@ -97,9 +111,10 @@ class Settings(BaseSettings):
         )
 
     class Config:
-        
+
         case_sensitive = True
         env_file = "../.env"
+        extra = "allow"
 
 
 settings = Settings()
