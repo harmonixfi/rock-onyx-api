@@ -1,47 +1,43 @@
 # import dependencies
 import asyncio
-from datetime import datetime, timezone
+import logging
 import traceback
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
-from web3._utils.filters import Filter
+from web3._utils.filters import AsyncFilter
 from websockets import ConnectionClosedError
 
-from core.db import engine
 from core.config import settings
-from log import setup_logging_to_file, setup_logging_to_console
+from core.db import engine
+from log import setup_logging_to_console, setup_logging_to_file
 from models import (
+    PositionStatus,
     PricePerShareHistory,
+    Transaction,
     UserPortfolio,
     Vault,
-    PositionStatus,
-    Transaction,
 )
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
-from datetime import datetime, timezone
-import logging
 
 # # Initialize logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def init_web3():
-    # filter through blocks and look for transactions involving this address
-    if settings.ENVIRONMENT_NAME == "Production":
-        w3 = Web3(
-            Web3.WebsocketProvider(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL)
-        )
-    else:
-        w3 = Web3(Web3.WebsocketProvider(settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL))
-
-    return w3
+REGISTERED_TOPICS = [
+    settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS,
+    settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS,
+    settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS,
+    settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC,
+    settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC,
+    settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC,
+]
 
 
-w3 = init_web3()
 session = Session(engine)
 
 
@@ -69,7 +65,9 @@ def _extract_delta_neutral_event(entry):
     return amount, shares, from_address
 
 
-def handle_deposit_event(user_portfolio: UserPortfolio, value, from_address, vault: Vault, latest_pps):
+def handle_deposit_event(
+    user_portfolio: UserPortfolio, value, from_address, vault: Vault, latest_pps
+):
     if user_portfolio is None:
         # Create new user_portfolio for this user address
         user_portfolio = UserPortfolio(
@@ -84,9 +82,7 @@ def handle_deposit_event(user_portfolio: UserPortfolio, value, from_address, vau
             total_shares=value / latest_pps,
         )
         session.add(user_portfolio)
-        logger.info(
-            f"User with address {from_address} added to user_portfolio table"
-        )
+        logger.info(f"User with address {from_address} added to user_portfolio table")
     else:
         # Update the user_portfolio
         user_portfolio: UserPortfolio = user_portfolio[0]
@@ -97,13 +93,13 @@ def handle_deposit_event(user_portfolio: UserPortfolio, value, from_address, vau
         )
         user_portfolio.total_shares += value / latest_pps
         session.add(user_portfolio)
-        logger.info(
-            f"User with address {from_address} updated in user_portfolio table"
-        )
+        logger.info(f"User with address {from_address} updated in user_portfolio table")
     return user_portfolio
 
 
-def handle_initiate_withdraw_event(user_portfolio: UserPortfolio, value, from_address, *args, **kwargs):
+def handle_initiate_withdraw_event(
+    user_portfolio: UserPortfolio, value, from_address, *args, **kwargs
+):
     if user_portfolio is not None:
         user_portfolio = user_portfolio[0]
         if user_portfolio.pending_withdrawal is None:
@@ -113,9 +109,7 @@ def handle_initiate_withdraw_event(user_portfolio: UserPortfolio, value, from_ad
 
         user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
         session.add(user_portfolio)
-        logger.info(
-            f"User with address {from_address} updated in user_portfolio table"
-        )
+        logger.info(f"User with address {from_address} updated in user_portfolio table")
         return user_portfolio
     else:
         logger.info(
@@ -123,7 +117,9 @@ def handle_initiate_withdraw_event(user_portfolio: UserPortfolio, value, from_ad
         )
 
 
-def handle_withdrawn_event(user_portfolio: UserPortfolio, value, from_address, *args, **kwargs):
+def handle_withdrawn_event(
+    user_portfolio: UserPortfolio, value, from_address, *args, **kwargs
+):
     if user_portfolio is not None:
         user_portfolio = user_portfolio[0]
         user_portfolio.total_balance -= value
@@ -132,9 +128,7 @@ def handle_withdrawn_event(user_portfolio: UserPortfolio, value, from_address, *
             user_portfolio.trade_end_date = datetime.now(timezone.utc)
 
         session.add(user_portfolio)
-        logger.info(
-            f"User with address {from_address} updated in user_portfolio table"
-        )
+        logger.info(f"User with address {from_address} updated in user_portfolio table")
         return user_portfolio
     else:
         logger.info(
@@ -204,48 +198,50 @@ def handle_event(vault_address: str, entry, event_name):
 
     # Call the appropriate handler based on the event name
     handler = event_handlers[event_name]
-    user_portfolio = handler(user_portfolio, vault, value, latest_pps, from_address)
+    user_portfolio = handler(
+        user_portfolio, value, from_address, vault=vault, latest_pps=latest_pps
+    )
 
     session.commit()
 
 
 class Web3Listener(WebSocketManager):
-    def __init__(self):
-        super().__init__(settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL, logger=logger)
+    def __init__(self, connection_url):
+        super().__init__(connection_url, logger=logger)
 
-    def init_event_filters(self):
-        self.wheel_deposit_event_filter = w3.eth.filter(
+    async def init_event_filters(self):
+        self.wheel_deposit_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
                 "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
             }
         )
-        self.wheel_init_withdraw_event_filter = w3.eth.filter(
+        self.wheel_init_withdraw_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
                 "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
             }
         )
-        self.wheel_complete_withdraw_event_filter = w3.eth.filter(
+        self.wheel_complete_withdraw_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
                 "topics": [settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS],
             }
         )
 
-        self.delta_neutral_deposit_event_filter = w3.eth.filter(
+        self.delta_neutral_deposit_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
             }
         )
-        self.delta_neutral_init_withdraw_event_filter = w3.eth.filter(
+        self.delta_neutral_init_withdraw_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
             }
         )
-        self.delta_neutral_complete_withdraw_event_filter = w3.eth.filter(
+        self.delta_neutral_complete_withdraw_event_filter = await self.w3.eth.filter(
             {
                 "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
@@ -253,11 +249,11 @@ class Web3Listener(WebSocketManager):
         )
 
     async def _process_new_entries(
-        self, vault_address: str, event_filter: Filter, event_name: str
+        self, vault_address: str, event_filter: AsyncFilter, event_name: str
     ):
-        deposit_events = event_filter.get_new_entries()
+        deposit_events = await event_filter.get_new_entries()
         for event in deposit_events:
-            await handle_event(vault_address, event, event_name)
+            handle_event(vault_address, event, event_name)
 
     async def handle_events(self):
         await self._process_new_entries(
@@ -298,15 +294,19 @@ class Web3Listener(WebSocketManager):
                 # subscribe to new block headers
                 subscription_id = await self.w3.eth.subscribe(
                     "logs",
-                    {"address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS},
+                    {
+                        "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    },
                 )
-                print(f"Subscription response: {subscription_id}")
+                logger.info(f"Subscription response: {subscription_id}")
 
                 subscription_id = await self.w3.eth.subscribe(
                     "logs",
-                    {"address": settings.ROCKONYX_STABLECOIN_ADDRESS},
+                    {
+                        "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+                    },
                 )
-                print(f"Subscription response: {subscription_id}")
+                logger.info(f"Subscription response: {subscription_id}")
 
                 async for _ in self.read_messages():
                     # Handle the event
@@ -317,7 +317,7 @@ class Web3Listener(WebSocketManager):
 
     async def run(self):
         await self.connect()
-        self.init_event_filters()
+        await self.init_event_filters()
 
         try:
             await self.listen_for_events()
@@ -332,5 +332,10 @@ if __name__ == "__main__":
     setup_logging_to_console(level=logging.INFO, logger=logger)
     setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
 
-    web3_listener = Web3Listener()
+    connection_url = (
+        settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
+        if settings.ENVIRONMENT_NAME == "Production"
+        else settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL
+    )
+    web3_listener = Web3Listener(connection_url)
     asyncio.run(web3_listener.run())
