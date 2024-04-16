@@ -19,7 +19,7 @@ logger.setLevel(logging.INFO)
 START_BLOCK = 0
 END_BLOCK = 99999999
 OFFSET = 100
-THREE_DAYS_AGO = 12 * 24 * 60 * 60
+THREE_DAYS_AGO = 30 * 24 * 60 * 60
 
 stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
 delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS

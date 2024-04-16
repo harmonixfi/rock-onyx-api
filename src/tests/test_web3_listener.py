@@ -60,7 +60,7 @@ def test_handle_event_deposit(mock_extract_event, event_data, db_session: Sessio
     amount = 20_000000
     shares = 20_000000
 
-    vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
+    vault_address = "0x18994527E6FfE7e91F1873eCA53e900CE0D0f276"
     vault = (
         db_session.query(Vault).filter(Vault.contract_address == vault_address).first()
     )
