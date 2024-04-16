@@ -12,16 +12,16 @@ class Position(BaseModel):
     init_deposit: float
     pnl: float | None = None
     status: str
-    trade_start_date: datetime
+    trade_start_date: str | None = None
     pending_withdrawal: float | None = None
     vault_currency: str | None = None
     current_round: int | None = None
-    next_close_round_date : datetime | None = None
+    next_close_round_date : str | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     slug: str | None = None
     apy: str | None = None
-    initiated_withdrawal_at: datetime | None = None
+    initiated_withdrawal_at: str | None = None
 
 
 class PortfolioBase(BaseModel):

@@ -13,6 +13,7 @@ from api.api_v1.deps import SessionDep
 from models import Vault, UserPortfolio
 from schemas import Position
 from core.config import settings
+from utils.json_encoder import custom_encoder
 
 router = APIRouter()
 
@@ -57,28 +58,26 @@ async def get_portfolio_info(
 
     positions: List[Position] = []
     total_balance = 0.0
-    for position in user_positions:
-        vault = session.exec(select(Vault).where(Vault.id == position.vault_id)).one()
+    for pos in user_positions:
+        vault = session.exec(select(Vault).where(Vault.id == pos.vault_id)).one()
 
         position = Position(
-            id=position.id,
-            vault_id=position.vault_id,
-            user_address=position.user_address,
-            total_balance=position.total_balance,
-            init_deposit=position.init_deposit,
-            entry_price=position.entry_price,
-            pnl=position.pnl,
-            status=position.status,
-            trade_start_date=position.trade_start_date,
-            pending_withdrawal=position.pending_withdrawal,
+            id=pos.id,
+            vault_id=pos.vault_id,
+            user_address=pos.user_address,
+            total_balance=pos.total_balance,
+            init_deposit=pos.init_deposit,
+            entry_price=pos.entry_price,
+            pnl=pos.pnl,
+            status=pos.status,
+            pending_withdrawal=pos.pending_withdrawal,
             vault_name=vault.name,
             vault_currency=vault.vault_currency,
             current_round=vault.current_round,
-            next_close_round_date=vault.next_close_round_date,
             monthly_apy=vault.monthly_apy,
             weekly_apy=vault.weekly_apy,
             slug=vault.slug,
-            initiated_withdrawal_at=position.initiated_withdrawal_at,
+            initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
         )
 
         if vault.contract_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
@@ -104,7 +103,7 @@ async def get_portfolio_info(
         position.total_balance = shares * price_per_share
         position.pnl = position.total_balance - position.init_deposit
 
-        holding_period = (datetime.datetime.now() - position.trade_start_date).days
+        holding_period = (datetime.datetime.now() - pos.trade_start_date).days
         position.apy = calculate_roi(
             position.total_balance,
             position.init_deposit,
@@ -113,6 +112,11 @@ async def get_portfolio_info(
         position.apy *= 100
 
         total_balance += position.total_balance
+
+        # encode datetime
+        position.trade_start_date = custom_encoder(pos.trade_start_date)
+        position.next_close_round_date = custom_encoder(vault.next_close_round_date)
+
         positions.append(position)
 
     total_deposit = sum(position.init_deposit for position in positions)
