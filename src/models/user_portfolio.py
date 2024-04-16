@@ -21,6 +21,7 @@ class UserPortfolio(SQLModel, table=True):
     exit_price: float | None = None
     pnl: float | None = None
     pending_withdrawal: float | None = None
+    total_shares: float | None = None
     status: PositionStatus = Field(default=PositionStatus.ACTIVE)
     trade_start_date: datetime = Field(default=datetime.now(tz=timezone.utc))
     trade_end_date: datetime = Field(default=datetime.now(tz=timezone.utc))

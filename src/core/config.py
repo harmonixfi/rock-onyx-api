@@ -96,6 +96,8 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str] = None
     NEXT_PUBLIC_USDC_ADDRESS: Optional[str] = None
 
+    ARBISCAN_API_KEY: str
+    ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
         if isinstance(v, str):

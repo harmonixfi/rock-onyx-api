@@ -11,7 +11,14 @@ from websockets import ConnectionClosedError
 from core.db import engine
 from core.config import settings
 from log import setup_logging_to_file, setup_logging_to_console
-from models import PricePerShareHistory, UserPortfolio, Vault, PositionStatus
+from models import (
+    PricePerShareHistory,
+    UserPortfolio,
+    Vault,
+    PositionStatus,
+    Transaction,
+)
+from utils.calculate_price import calculate_avg_entry_price
 from datetime import datetime, timezone
 import logging
 
@@ -68,8 +75,20 @@ def handle_event(vault_address: str, entry, eventName):
 
     if vault is None:
         raise ValueError("Vault not found")
-
     vault: Vault = vault[0]
+
+    transaction = session.exec(
+        select(Transaction).where(Transaction.txhash == entry["transactionHash"])
+    ).first()
+    if transaction is None:
+        transaction = Transaction(
+            txhash=entry["transactionHash"],
+        )
+        session.add(transaction)
+    else:
+        logger.info(
+            f"Transaction with txhash {entry['transactionHash']} already exists"
+        )
     logger.info(f"Processing event {eventName} for vault {vault_address} {vault.name}")
 
     # Get the latest pps from pps_history table
@@ -113,6 +132,7 @@ def handle_event(vault_address: str, entry, eventName):
                 pnl=0,
                 status=PositionStatus.ACTIVE,
                 trade_start_date=datetime.now(timezone.utc),
+                total_shares=value / latest_pps,
             )
             session.add(user_portfolio)
             logger.info(
@@ -120,9 +140,13 @@ def handle_event(vault_address: str, entry, eventName):
             )
         else:
             # Update the user_portfolio
-            user_portfolio = user_portfolio[0]
+            user_portfolio: UserPortfolio = user_portfolio[0]
             user_portfolio.total_balance += value
             user_portfolio.init_deposit += value
+            user_portfolio.entry_price = calculate_avg_entry_price(
+                user_portfolio, latest_pps, value
+            )
+            user_portfolio.total_shares += value / latest_pps
             session.add(user_portfolio)
             logger.info(
                 f"User with address {from_address} updated in user_portfolio table"
