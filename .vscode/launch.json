@@ -45,7 +45,7 @@
             "module": "web3_listener",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
-        }
+        },
         {
             "name": "Python: check_transaction_missing_every_three_days",
             "type": "debugpy",

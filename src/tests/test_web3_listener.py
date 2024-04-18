@@ -1,4 +1,5 @@
 from datetime import timedelta
+import math
 from unittest.mock import patch
 
 from hexbytes import HexBytes
@@ -88,8 +89,9 @@ def test_handle_event_deposit(mock_extract_event, event_data, db_session: Sessio
         latest_pps = latest_pps[0]
     else:
         latest_pps = 1
-    assert round(user_portfolio.total_shares, 2) == round(
-        user_portfolio.total_balance / latest_pps, 2
+    assert (
+        round(user_portfolio.total_shares, 2)
+        == math.ceil(user_portfolio.total_balance / latest_pps * 100) / 100
     )
     assert user_portfolio.entry_price == latest_pps
 
@@ -173,14 +175,12 @@ def test_handle_event_deposit_calculating_entry_price(event_data, db_session: Se
     )
     assert user_portfolio is not None
     assert user_portfolio.total_balance == 220
-    assert round(user_portfolio.entry_price, 2) == round(
-        (
-            (20 / latest_pps.price_per_share) * latest_pps.price_per_share
-            + (shares / 1e6) * updated_pps
-        )
-        / ((20 / latest_pps.price_per_share) + (shares / 1e6)),
-        2,
-    )
+
+    expected_entry = (
+        (20 / latest_pps.price_per_share) * latest_pps.price_per_share
+        + (shares / 1e6) * updated_pps
+    ) / ((20 / latest_pps.price_per_share) + (shares / 1e6))
+    assert round(user_portfolio.entry_price, 2) == math.ceil(expected_entry * 100) / 100
 
 
 @patch("web3_listener._extract_stablecoin_event")
