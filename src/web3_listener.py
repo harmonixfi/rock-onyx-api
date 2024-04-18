@@ -251,8 +251,8 @@ class Web3Listener(WebSocketManager):
     async def _process_new_entries(
         self, vault_address: str, event_filter: AsyncFilter, event_name: str
     ):
-        deposit_events = await event_filter.get_new_entries()
-        for event in deposit_events:
+        events = await event_filter.get_new_entries()
+        for event in events:
             handle_event(vault_address, event, event_name)
 
     async def handle_events(self):
@@ -314,6 +314,9 @@ class Web3Listener(WebSocketManager):
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
+
+                if 'filter not found' in str(e):
+                    await self.init_event_filters()
 
     async def run(self):
         await self.connect()
