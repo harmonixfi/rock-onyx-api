@@ -1371,19 +1371,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint8",
-        "name": "_slippage",
-        "type": "uint8"
-      }
-    ],
-    "name": "setSlippage",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes4",
         "name": "interfaceId",
         "type": "bytes4"
