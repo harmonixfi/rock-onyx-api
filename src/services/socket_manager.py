@@ -27,6 +27,7 @@ class WebSocketManager:
             self.websocket = None
 
     async def reconnect(self):
+        self.logger.info("Reconnecting to websocket")
         await self.disconnect()
         await self.connect()
 
