@@ -6,7 +6,7 @@ import pendulum
 from sqlmodel import Session, select
 from web3 import Web3
 
-from bg_tasks.utils import get_before_price_per_shares, calculate_roi
+from bg_tasks.utils import calculate_pps_statistics, get_before_price_per_shares, calculate_roi
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -177,6 +177,7 @@ def calculate_performance(vault_id: uuid.UUID):
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
+    all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(session, vault_id)
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
@@ -187,6 +188,13 @@ def calculate_performance(vault_id: uuid.UUID):
         apy_1w=apy_1w,
         apy_ytd=apy_ytd,
         vault_id=vault_id,
+        risk_factor=risk_factor,
+        all_time_high_per_share=all_time_high_per_share,
+        total_shares=0,
+        sortino_ratio=sortino,
+        downside_risk=downside,
+        earned_fee=0,
+        fee_structure="",
     )
     update_price_per_share(vault_id, current_price_per_share)
 

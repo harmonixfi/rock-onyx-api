@@ -26,7 +26,7 @@ logger.setLevel(logging.INFO)
 START_BLOCK = 0
 END_BLOCK = 99999999
 OFFSET = 100
-THREE_DAYS_AGO = 30 * 24 * 60 * 60
+THREE_DAYS_AGO = 3 * 24 * 60 * 60
 
 stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
 delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS
@@ -54,7 +54,7 @@ def get_transactions(vault_address, page):
         "apikey": api_key,
     }
     api_url = (
-        f"{url}{'&'.join(f'{key}={value}' for key, value in query_params.items())}"
+        f"{url}&{'&'.join(f'{key}={value}' for key, value in query_params.items())}"
     )
     response = requests.get(api_url)
     response_json = response.json()
@@ -83,7 +83,8 @@ def check_missing_transactions():
             transactions = get_transactions(vault_address, page)
             if transactions == "Max rate limit reached":
                 break
-
+            if not transactions:
+                break
             for transaction in transactions:
                 transaction_timestamp = float(transaction["timeStamp"])
                 if transaction_timestamp > timestamp_three_days_ago:

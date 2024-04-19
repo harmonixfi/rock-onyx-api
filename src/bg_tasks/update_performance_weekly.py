@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 from web3 import Web3
 import pandas as pd
 
-from bg_tasks.utils import get_before_price_per_shares, calculate_roi
+from bg_tasks.utils import calculate_pps_statistics, get_before_price_per_shares, calculate_roi
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -84,10 +84,18 @@ def get_current_round():
 
 
 def get_current_tvl():
-    tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+    # tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
 
-    return tvl / 1e6
+    # return tvl / 1e6
+    return 0
 
+# def get_fee_structure():
+#     fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
+#     return fee_structure
+
+# def get_total_shares():
+#     total_shares = rockOnyxUSDTVaultContract.functions.getVaultState().call()
+#     return total_shares
 
 def get_next_friday():
     today = datetime.today()
@@ -136,7 +144,8 @@ def calculate_performance(vault_id: uuid.UUID):
 
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
-
+    # fee_structure = get_fee_structure()
+    # total_shares = get_total_shares()
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -168,6 +177,7 @@ def calculate_performance(vault_id: uuid.UUID):
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
+    all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(session, vault_id)
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
@@ -178,6 +188,13 @@ def calculate_performance(vault_id: uuid.UUID):
         apy_1w=apy_1w,
         apy_ytd=apy_ytd,
         vault_id=vault_id,
+        risk_factor=risk_factor,
+        all_time_high_per_share=all_time_high_per_share,
+        total_shares=0,
+        sortino_ratio=sortino,
+        downside_risk=downside,
+        earned_fee=0,
+        fee_structure="",
     )
     update_price_per_share(vault_id, current_price_per_share)
 

@@ -2,7 +2,7 @@ from datetime import datetime
 import uuid
 
 import sqlmodel
-
+from sqlalchemy.dialects.postgresql import JSON
 
 class VaultPerformanceBase(sqlmodel.SQLModel):
     datetime: datetime
@@ -12,8 +12,14 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     apy_ytd: float
     benchmark: float
     pct_benchmark: float
-
-
+    risk_factor: float
+    all_time_high_per_share: float
+    total_shares: float
+    sortino_ratio: float
+    downside_risk: float
+    earned_fee: float
+    fee_structure: str
+    
 class VaultPerformance(VaultPerformanceBase, table=True):
     __tablename__ = "vault_performance"
 
