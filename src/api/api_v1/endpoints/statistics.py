@@ -45,7 +45,7 @@ async def get_all_statistics(session: SessionDep):
             total_value_locked = performances.total_locked_value,
             risk_factor = performances.risk_factor,
             unique_depositors = len(portfolios),
-            fee_structure = str(json.loads(performances.fee_structure)),
+            fee_structure = json.loads(performances.fee_structure),
             vault_address = vault.contract_address,
             manager_address = "0x20f89bA1B0Fc1e83f9aEf0a134095Cd63F7e8CC7",
             all_time_high_per_share = performances.all_time_high_per_share,
