@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 from fastapi import APIRouter, HTTPException
@@ -37,20 +38,21 @@ async def get_all_statistics(session: SessionDep):
             .order_by(PricePerShareHistory.datetime.desc())
         ).first()
         last_price_per_share = pps_history.price_per_share
+        #convert string to jso
         statistic = schemas.Statistics(
             price_per_share = last_price_per_share,
             apy_1y = performances.apy_ytd,
             total_value_locked = performances.total_locked_value,
             risk_factor = performances.risk_factor,
             unique_depositors = len(portfolios),
-            fee_structure = "None",
+            fee_structure = str(json.loads(performances.fee_structure)),
             vault_address = vault.contract_address,
             manager_address = "0x20f89bA1B0Fc1e83f9aEf0a134095Cd63F7e8CC7",
             all_time_high_per_share = performances.all_time_high_per_share,
-            total_shares = 0,
+            total_shares = performances.total_shares,
             sortino_ratio= performances.sortino_ratio,
             downside_risk = performances.downside_risk,
-            earned_fee = 0
+            earned_fee = performances.earned_fee
         )
         data.append(statistic)
     return data

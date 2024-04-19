@@ -13,6 +13,8 @@ from core.db import engine
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
+from schemas.fee_info import FeeInfo
+from schemas.vault_state import VaultState
 from services.market_data import get_price
 
 # Connect to the Ethereum network
@@ -84,18 +86,34 @@ def get_current_round():
 
 
 def get_current_tvl():
-    # tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+    tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+    return tvl / 1e6
 
-    # return tvl / 1e6
-    return 0
+def get_fee_info():
+    fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
+    fee_info = FeeInfo(
+        deposit_fee=fee_structure[0],
+        exit_fee=fee_structure[1],
+        performance_fee=fee_structure[2],
+        management_fee=fee_structure[3],
+    )
+    json_fee_info = fee_info.json()
+    return json_fee_info
 
-# def get_fee_structure():
-#     fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
-#     return fee_structure
-
-# def get_total_shares():
-#     total_shares = rockOnyxUSDTVaultContract.functions.getVaultState().call()
-#     return total_shares
+def get_vault_state():
+    state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
+            {"from": settings.OWNER_WALLET_ADDRESS}
+        )
+    vault_state = VaultState(
+        performance_fee=state[0] / 1e6,
+        management_fee=state[1] / 1e6,
+        current_round_fee=state[2] / 1e6,
+        withdrawal_pool=state[3] / 1e6,
+        pending_deposit=state[4] / 1e6,
+        total_share=state[5] / 1e6,
+        last_locked=state[6] / 1e6,
+    )
+    return vault_state
 
 def get_next_friday():
     today = datetime.today()
@@ -144,8 +162,8 @@ def calculate_performance(vault_id: uuid.UUID):
 
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
-    # fee_structure = get_fee_structure()
-    # total_shares = get_total_shares()
+    fee_info = get_fee_info()
+    vault_state = get_vault_state()
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -190,11 +208,11 @@ def calculate_performance(vault_id: uuid.UUID):
         vault_id=vault_id,
         risk_factor=risk_factor,
         all_time_high_per_share=all_time_high_per_share,
-        total_shares=0,
+        total_shares=vault_state.total_share,
         sortino_ratio=sortino,
         downside_risk=downside,
-        earned_fee=0,
-        fee_structure="",
+        earned_fee=vault_state.performance_fee + vault_state.management_fee,
+        fee_structure=fee_info,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
