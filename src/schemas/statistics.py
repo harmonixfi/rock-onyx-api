@@ -18,3 +18,9 @@ class Statistics(BaseModel):
     sortino_ratio: float
     downside_risk: float
     earned_fee: float
+
+class Vault_Dashboard(BaseModel):
+    price_per_share: float
+    apy_1y: float
+    risk_factor: float
+    total_value_locked: float
