@@ -40,6 +40,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
     ).first()
     last_price_per_share = pps_history.price_per_share
     statistic = schemas.Statistics(
+        name = vault.name,
         price_per_share = last_price_per_share,
         apy_1y = performances.apy_ytd,
         total_value_locked = performances.total_locked_value,
@@ -74,13 +75,14 @@ async def get_dashboard_statistics(session: SessionDep):
             .order_by(PricePerShareHistory.datetime.desc())
         ).first()
         last_price_per_share = pps_history.price_per_share
-        
+
         statistic = schemas.Vault_Dashboard(
+            name = vault.name,
             price_per_share = last_price_per_share,
             apy_1y = performances.apy_ytd,
             risk_factor = performances.risk_factor,
             total_value_locked = performances.total_locked_value,
-            vault_address = vault.contract_address
+            vault_address = vault.contract_address,
         )
         data.append(statistic)
     return data

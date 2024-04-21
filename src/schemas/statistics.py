@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 
 
 class Statistics(BaseModel):
+    name: str
     price_per_share: float
     apy_1y: float
     total_value_locked: float
@@ -20,6 +21,7 @@ class Statistics(BaseModel):
     earned_fee: float
 
 class Vault_Dashboard(BaseModel):
+    name: str
     price_per_share: float
     apy_1y: float
     risk_factor: float
