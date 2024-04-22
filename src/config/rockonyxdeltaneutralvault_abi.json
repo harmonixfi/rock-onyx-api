@@ -859,6 +859,34 @@
   },
   {
     "inputs": [],
+    "name": "getFeeInfo",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "depositFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "exitFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "performanceFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "managementFee",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getPerpDexState",
     "outputs": [
       {
@@ -1364,19 +1392,6 @@
       }
     ],
     "name": "setPaused",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "_slippage",
-        "type": "uint8"
-      }
-    ],
-    "name": "setSlippage",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
