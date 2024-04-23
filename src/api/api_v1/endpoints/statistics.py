@@ -53,15 +53,18 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         total_shares = performances.total_shares,
         sortino_ratio= performances.sortino_ratio,
         downside_risk = performances.downside_risk,
-        earned_fee = performances.earned_fee
+        earned_fee = performances.earned_fee,
+        slug=vault.slug
     )
     return statistic
 
-@router.get("/", response_model=List[schemas.Vault_Dashboard])
+@router.get("/", response_model=schemas.Dashboard)
 async def get_dashboard_statistics(session: SessionDep):
     statement = select(Vault)
     vaults = session.exec(statement).all()
     data = []
+    tvl_in_all_vaults = 0
+    tvl_composition = {}
     for vault in vaults:
         statement = (select(VaultPerformance)
             .where(VaultPerformance.vault_id == vault.id)
@@ -83,6 +86,18 @@ async def get_dashboard_statistics(session: SessionDep):
             risk_factor = performances.risk_factor,
             total_value_locked = performances.total_locked_value,
             vault_address = vault.contract_address,
+            slug=vault.slug,
+            id=vault.id
         )
+        tvl_in_all_vaults += performances.total_locked_value
+        tvl_composition[vault.slug] = performances.total_locked_value
         data.append(statistic)
+
+    for key in tvl_composition:
+        tvl_composition[key] = tvl_composition[key]/tvl_in_all_vaults
+    data = schemas.Dashboard(
+        tvl_in_all_vaults=tvl_in_all_vaults,
+        tvl_composition=tvl_composition,
+        vaults=data
+    )
     return data

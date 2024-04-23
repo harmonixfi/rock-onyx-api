@@ -1,8 +1,6 @@
 import uuid
 from pydantic import BaseModel
-from datetime import datetime
 from typing import List, Dict, Any
-
 
 class Statistics(BaseModel):
     name: str
@@ -19,6 +17,7 @@ class Statistics(BaseModel):
     sortino_ratio: float
     downside_risk: float
     earned_fee: float
+    slug: str
 
 class Vault_Dashboard(BaseModel):
     name: str
@@ -26,3 +25,11 @@ class Vault_Dashboard(BaseModel):
     apy_1y: float
     risk_factor: float
     total_value_locked: float
+    slug: str
+    id: uuid.UUID
+
+class Dashboard(BaseModel):
+    tvl_in_all_vaults: float
+    tvl_composition: Dict[str, float]
+    vaults: List[Vault_Dashboard]
+
