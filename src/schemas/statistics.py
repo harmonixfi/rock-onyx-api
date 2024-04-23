@@ -2,6 +2,7 @@ import uuid
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
+
 class Statistics(BaseModel):
     name: str
     price_per_share: float
@@ -19,6 +20,7 @@ class Statistics(BaseModel):
     earned_fee: float
     slug: str
 
+
 class Vault_Dashboard(BaseModel):
     name: str
     price_per_share: float
@@ -28,8 +30,8 @@ class Vault_Dashboard(BaseModel):
     slug: str
     id: uuid.UUID
 
+
 class Dashboard(BaseModel):
     tvl_in_all_vaults: float
     tvl_composition: Dict[str, float]
     vaults: List[Vault_Dashboard]
-

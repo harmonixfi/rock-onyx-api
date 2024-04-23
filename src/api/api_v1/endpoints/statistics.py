@@ -107,7 +107,7 @@ async def get_dashboard_statistics(session: SessionDep):
     return data
 
 
-@router.get("/{vault_id}/performance")
+@router.get("/{vault_id}/tvl-history")
 async def get_vault_performance(session: SessionDep, vault_id: str):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.id == vault_id)
