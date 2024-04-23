@@ -3,12 +3,12 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
-
 from bg_tasks.utils import calculate_pps_statistics
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 import schemas
+import pandas as pd
 from api.api_v1.deps import SessionDep
 from models import Vault
 
@@ -101,3 +101,37 @@ async def get_dashboard_statistics(session: SessionDep):
         vaults=data
     )
     return data
+
+@router.get("/{vault_id}/performance")
+async def get_vault_performance(session: SessionDep, vault_id: str):
+    # Get the VaultPerformance records for the given vault_id
+    statement = select(Vault).where(Vault.id == vault_id)
+    vault = session.exec(statement).first()
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+
+    perf_hist = session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id == vault.id)
+        .order_by(VaultPerformance.datetime.asc())
+    ).all()
+    if len(perf_hist) == 0:
+        return {"date": [], "tvl": []}
+
+    # Convert the list of VaultPerformance objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
+
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
+
+    pps_history_df["tvl"] = pps_history_df["total_locked_value"]
+
+    # Convert the date column to string format
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    pps_history_df.fillna(0, inplace=True)
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "tvl"]].to_dict(orient="list")
