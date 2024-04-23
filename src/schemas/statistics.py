@@ -1,8 +1,6 @@
 import uuid
 from pydantic import BaseModel
-from datetime import datetime
 from typing import List, Dict, Any
-
 
 class Statistics(BaseModel):
     name: str
@@ -19,6 +17,7 @@ class Statistics(BaseModel):
     sortino_ratio: float
     downside_risk: float
     earned_fee: float
+    slug: str
 
 class Vault_Dashboard(BaseModel):
     name: str

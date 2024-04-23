@@ -53,7 +53,8 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         total_shares = performances.total_shares,
         sortino_ratio= performances.sortino_ratio,
         downside_risk = performances.downside_risk,
-        earned_fee = performances.earned_fee
+        earned_fee = performances.earned_fee,
+        slug=vault.slug
     )
     return statistic
 
