@@ -26,3 +26,11 @@ class Vault_Dashboard(BaseModel):
     apy_1y: float
     risk_factor: float
     total_value_locked: float
+    slug: str
+    id: uuid.UUID
+
+class Dashboard(BaseModel):
+    tvl_in_all_vaults: float
+    tvl_composition: Dict[str, float]
+    vaults: List[Vault_Dashboard]
+
