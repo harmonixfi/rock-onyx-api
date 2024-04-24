@@ -83,7 +83,7 @@ async def get_dashboard_statistics(session: SessionDep):
         statistic = schemas.Vault_Dashboard(
             name=vault.name,
             price_per_share=last_price_per_share,
-            apy_1y=performances.apy_ytd,
+            apy_1y=performances.apy_ytd if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS else performances.apy_1m,
             risk_factor=performances.risk_factor,
             total_value_locked=performances.total_locked_value,
             vault_address=vault.contract_address,
