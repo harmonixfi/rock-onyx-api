@@ -6,7 +6,11 @@ from sqlmodel import Session, select
 from web3 import Web3
 import pandas as pd
 
-from bg_tasks.utils import calculate_pps_statistics, get_before_price_per_shares, calculate_roi
+from bg_tasks.utils import (
+    calculate_pps_statistics,
+    get_before_price_per_shares,
+    calculate_roi,
+)
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -89,21 +93,24 @@ def get_current_tvl():
     tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
     return tvl / 1e6
 
+
 def get_fee_info():
-    fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
+    # fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
+    fee_structure = [0, 0, 10, 1]
     fee_info = FeeInfo(
         deposit_fee=fee_structure[0],
         exit_fee=fee_structure[1],
         performance_fee=fee_structure[2],
         management_fee=fee_structure[3],
     )
-    json_fee_info = fee_info.json()
+    json_fee_info = fee_info.model_dump_json()
     return json_fee_info
+
 
 def get_vault_state():
     state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
-            {"from": settings.OWNER_WALLET_ADDRESS}
-        )
+        {"from": settings.OWNER_WALLET_ADDRESS}
+    )
     vault_state = VaultState(
         performance_fee=state[0] / 1e6,
         management_fee=state[1] / 1e6,
@@ -114,6 +121,7 @@ def get_vault_state():
         last_locked=state[6] / 1e6,
     )
     return vault_state
+
 
 def get_next_friday():
     today = datetime.today()
@@ -195,7 +203,9 @@ def calculate_performance(vault_id: uuid.UUID):
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
-    all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(session, vault_id)
+    all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
+        session, vault_id
+    )
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
