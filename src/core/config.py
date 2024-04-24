@@ -83,6 +83,8 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
 
+    OWNER_WALLET_ADDRESS: str
+
     POSTGRES_SERVER: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
