@@ -256,37 +256,46 @@ class Web3Listener(WebSocketManager):
             handle_event(vault_address, event, event_name)
 
     async def handle_events(self):
-        await self._process_new_entries(
-            settings.ROCKONYX_STABLECOIN_ADDRESS,
-            self.wheel_deposit_event_filter,
-            "Deposit",
-        )
-        await self._process_new_entries(
-            settings.ROCKONYX_STABLECOIN_ADDRESS,
-            self.wheel_init_withdraw_event_filter,
-            "InitiateWithdraw",
-        )
-        await self._process_new_entries(
-            settings.ROCKONYX_STABLECOIN_ADDRESS,
-            self.wheel_complete_withdraw_event_filter,
-            "Withdrawn",
-        )
+        try:
+            await self._process_new_entries(
+                settings.ROCKONYX_STABLECOIN_ADDRESS,
+                self.wheel_deposit_event_filter,
+                "Deposit",
+            )
+            await self._process_new_entries(
+                settings.ROCKONYX_STABLECOIN_ADDRESS,
+                self.wheel_init_withdraw_event_filter,
+                "InitiateWithdraw",
+            )
+            await self._process_new_entries(
+                settings.ROCKONYX_STABLECOIN_ADDRESS,
+                self.wheel_complete_withdraw_event_filter,
+                "Withdrawn",
+            )
 
-        await self._process_new_entries(
-            settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-            self.delta_neutral_deposit_event_filter,
-            "Deposit",
-        )
-        await self._process_new_entries(
-            settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-            self.delta_neutral_init_withdraw_event_filter,
-            "InitiateWithdraw",
-        )
-        await self._process_new_entries(
-            settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-            self.delta_neutral_complete_withdraw_event_filter,
-            "Withdrawn",
-        )
+            await self._process_new_entries(
+                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                self.delta_neutral_deposit_event_filter,
+                "Deposit",
+            )
+            await self._process_new_entries(
+                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                self.delta_neutral_init_withdraw_event_filter,
+                "InitiateWithdraw",
+            )
+            await self._process_new_entries(
+                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                self.delta_neutral_complete_withdraw_event_filter,
+                "Withdrawn",
+            )
+        except Exception as e:
+            if 'filter not found' in str(e):
+                logger.info("Re-create event filters")
+                await self.init_event_filters()
+                await self.handle_events()
+            else:
+                raise e
+
 
     async def listen_for_events(self):
         while True:
@@ -314,9 +323,6 @@ class Web3Listener(WebSocketManager):
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
-
-                if 'filter not found' in str(e):
-                    await self.init_event_filters()
 
     async def run(self):
         await self.connect()
