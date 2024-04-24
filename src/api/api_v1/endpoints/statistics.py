@@ -41,7 +41,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
     statistic = schemas.Statistics(
         name=vault.name,
         price_per_share=last_price_per_share,
-        apy_1y=performances.apy_ytd,
+        apy_1y=performances.apy_ytd if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS else performances.apy_1m,
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
         unique_depositors=len(portfolios),
