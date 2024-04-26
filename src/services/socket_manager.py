@@ -27,6 +27,7 @@ class WebSocketManager:
             self.websocket = None
 
     async def reconnect(self):
+        self.logger.info("Reconnecting to websocket provider")
         await self.disconnect()
         await self.connect()
 
@@ -43,10 +44,14 @@ class WebSocketManager:
                     self.websocket.recv(), timeout=read_timeout
                 )
                 yield message
-            except (
-                ConnectionClosedError,
-                ConnectionClosedOK,
-            ) as e:
+            except ConnectionClosedError as e:
+                if on_disconnect:
+                    on_disconnect()
+                self.logger.error("Websocket connection close")
+                self.logger.error(e)
+                self.logger.error(traceback.format_exc())
+                await self.reconnect()
+            except ConnectionClosedOK as e:
                 if on_disconnect:
                     on_disconnect()
                 self.logger.error("Websocket connection close")
