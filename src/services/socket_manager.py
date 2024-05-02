@@ -23,19 +23,13 @@ class WebSocketManager:
 
     async def disconnect(self):
         if self.websocket:
-            await self.websocket.close()
+            await self.w3.provider.disconnect()
             self.websocket = None
 
     async def reconnect(self):
         self.logger.info("Reconnecting to websocket provider")
         await self.disconnect()
         await self.connect()
-
-    async def handle_disconnect(self):
-        while True:
-            if self.websocket and self.websocket.closed:
-                await self.reconnect()
-            await asyncio.sleep(1)
 
     async def read_messages(self, read_timeout=0.1, backoff=0.1, on_disconnect=None):
         while True:
