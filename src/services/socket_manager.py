@@ -5,7 +5,7 @@ from typing import Optional
 
 from web3 import AsyncWeb3, Web3, WebsocketProviderV2
 from web3.providers.websocket.websocket_connection import WebsocketConnection
-from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+from websockets import ConnectionClosedError, ConnectionClosedOK
 
 
 class WebSocketManager:
