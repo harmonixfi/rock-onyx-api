@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
 from web3._utils.filters import AsyncFilter
-from websockets import ConnectionClosedError
+from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from core.config import settings
 from core.db import engine
@@ -289,13 +289,12 @@ class Web3Listener(WebSocketManager):
                 "Withdrawn",
             )
         except Exception as e:
-            if 'filter not found' in str(e):
+            if "filter not found" in str(e):
                 logger.info("Re-create event filters")
                 await self.init_event_filters()
                 await self.handle_events()
             else:
                 raise e
-
 
     async def listen_for_events(self):
         while True:
@@ -320,6 +319,12 @@ class Web3Listener(WebSocketManager):
                 async for _ in self.read_messages():
                     # Handle the event
                     await self.handle_events()
+            except (ConnectionClosedError, ConnectionClosedOK) as e:
+                self.logger.error("Websocket connection close")
+                self.logger.error(e)
+                self.logger.error(traceback.format_exc())
+                await self.reconnect()
+                await asyncio.sleep(10)
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
