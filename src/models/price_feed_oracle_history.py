@@ -6,7 +6,8 @@ import uuid
 class PriceFeedOracleHistoryBase(SQLModel):
     datetime: datetime
     token_pair: str
-    lastest_price: float
+    latest_price: float
+
 
 class PriceFeedOracleHistory(PriceFeedOracleHistoryBase, table=True):
     __tablename__ = "price_feed_oracle_history"

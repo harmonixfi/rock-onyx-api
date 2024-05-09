@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table('price_feed_oracle_history',
     sa.Column('datetime', sa.DateTime(), nullable=False),
     sa.Column('token_pair', sa.String(length=256), nullable=False),
-    sa.Column('lastest_price', sa.Float(), nullable=False),
+    sa.Column('latest_price', sa.Float(), nullable=False),
     sa.Column('id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )

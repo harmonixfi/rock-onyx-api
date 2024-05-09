@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     ).hex()
 
     OWNER_WALLET_ADDRESS: str
+    OWNER_WALLET_PRIVATEKEY: str
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
