@@ -15,6 +15,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: Update Usdce usdc Price Feed",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_usdce_usdc_price_feed_oracle",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: Update Delta Neutral Vault Performance",
             "type": "debugpy",
             "request": "launch",

@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     ROCKONYX_STABLECOIN_ADDRESS: str
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str
+    ROCKONYX_USDCE_USDC_PRICE_FEED_ADDRESS: str
+    USDCE_USDC_CAMELOT_POOL_ADDRESS: str
 
     STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = Web3.solidity_keccak(
         ["string"], ["Deposited(address,uint256,uint256)"]
@@ -84,6 +86,7 @@ class Settings(BaseSettings):
     ).hex()
 
     OWNER_WALLET_ADDRESS: str
+    OWNER_WALLET_PRIVATEKEY: str
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str
