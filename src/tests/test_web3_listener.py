@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import math
 from unittest.mock import patch
 
@@ -11,8 +11,12 @@ from sqlalchemy.orm import Session
 from core.db import engine
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
-from models.vaults import Vault
-from web3_listener import handle_event
+from models.vaults import Vault, VaultCategory
+from web3_listener import handle_event, handle_position_opened_event
+from models import (
+    UserRestakingDepositHistory,
+    UserRestakingDepositHistoryAudit,
+)
 
 
 @pytest.fixture(scope="module")
@@ -238,5 +242,40 @@ def test_handle_event_deposit_then_init_withdraw(
     assert user_portfolio is not None
     assert user_portfolio.total_balance == 0
     assert user_portfolio.status == PositionStatus.CLOSED
+
+
+@patch("web3_listener._extract_stablecoin_event")
+def test_handle_position_opened_event(mock_extract_event, event_data, db_session: Session):
+    # Prepare data
+    user_address = "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+    vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
+    vault = Vault(contract_address=vault_address, category=VaultCategory.points)
+    db_session.add(vault)
+    db_session.commit()
+
+    # Simulate deposit event
+    mock_extract_event.return_value = (
+        200,
+        100,
+        "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
+    )  # amount, from_address
+    amount = 200_000000
+    shares = 200_000000
+    event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
+    handle_event("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "Deposit")
+    user_portfolio = (
+        db_session.query(UserPortfolio)
+        .filter(
+            UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+        )
+        .first()
+    )
+    assert user_portfolio is not None
+    assert user_portfolio.total_balance == 200
+
+    eth_amount = 1_000000
+    usdc_amount = 3000_000000
+    event_data["data"] = HexBytes("0x{:064x}".format(usdc_amount) + "{:064x}".format(eth_amount))
+    handle_event("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "PositionOpened")
 
 

@@ -21,7 +21,7 @@ from models import (
     UserPortfolio,
     Vault,
 )
-from models.user_restaking_deposit_history import (
+from models import (
     UserRestakingDepositHistory,
     UserRestakingDepositHistoryAudit,
 )
@@ -144,7 +144,7 @@ def handle_withdrawn_event(
 
 
 def handle_position_opened_event(
-    user_portfolio: UserPortfolio, value, from_address, vault: Vault, *args, **kwargs
+    user_portfolio: UserPortfolio, eth_amount, from_address, vault: Vault, *args, **kwargs
 ):
     # check if vault is delta neutral vault for restaking?
     if vault.category == VaultCategory.points:
@@ -160,7 +160,7 @@ def handle_position_opened_event(
             # create new record in user_restaking_deposit_history table
             deposit_history = UserRestakingDepositHistory(
                 position_id=user_portfolio[0].id,
-                deposit_amount=value,
+                deposit_amount=eth_amount,
                 created_at=datetime.now(timezone.utc),
             )
             session.add(deposit_history)
@@ -170,7 +170,7 @@ def handle_position_opened_event(
                 deposit_history_id=deposit_history.id,
                 field_name="deposit_amount",
                 old_value="0",
-                new_value=str(value),
+                new_value=str(eth_amount),
                 updated_by=__name__,
             )
             session.add(deposit_history_audit)
@@ -182,7 +182,7 @@ def handle_position_opened_event(
 
 
 def handle_position_closed_event(
-    user_portfolio: UserPortfolio, value, from_address, vault: Vault, *args, **kwargs
+    user_portfolio: UserPortfolio, eth_amount, from_address, vault: Vault, *args, **kwargs
 ):
     if vault.category == VaultCategory.points:
         # check if user_portfolio exists
@@ -202,7 +202,7 @@ def handle_position_closed_event(
                 .order_by(UserRestakingDepositHistory.created_at.desc())
             ).all()
 
-            remaining_amount = value
+            remaining_amount = eth_amount
             for rec in deposit_recs:
                 if rec.deposit_amount >= remaining_amount:
                     rec.deposit_amount -= remaining_amount
@@ -280,29 +280,56 @@ def handle_event(vault_address: str, entry, event_name):
     else:
         latest_pps = 1
 
-    # Extract the value, shares and from_address from the event
-    if vault_address == settings.ROCKONYX_STABLECOIN_ADDRESS:
-        value, _, from_address = _extract_stablecoin_event(entry)
-    elif vault_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
-        value, _, from_address = _extract_delta_neutral_event(entry)
+    if event_name not in ["PositionOpened", "PositionClosed"]:
+        # Extract the value, shares and from_address from the event
+        if vault_address == settings.ROCKONYX_STABLECOIN_ADDRESS:
+            value, _, from_address = _extract_stablecoin_event(entry)
+        elif vault_address in {
+            settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS, 
+            settings.ROCKONYX_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS
+        }:
+            value, _, from_address = _extract_delta_neutral_event(entry)
+        else:
+            raise ValueError("Invalid vault address")
+
+        logger.info(f"Value: {value}, from_address: {from_address}")
+
+        # Check if user with from_address has position in user_portfolio table
+        user_portfolio = session.exec(
+            select(UserPortfolio)
+            .where(UserPortfolio.user_address == from_address)
+            .where(UserPortfolio.vault_id == vault.id)
+            .where(UserPortfolio.status == PositionStatus.ACTIVE)
+        ).first()
+
+        # Call the appropriate handler based on the event name
+        handler = event_handlers[event_name]
+        user_portfolio = handler(
+            user_portfolio, value, from_address, vault=vault, latest_pps=latest_pps
+        )
     else:
-        raise ValueError("Invalid vault address")
+        if vault.category == VaultCategory.points:
+            if event_name == "PositionOpened":
+                eth_amount, _, from_address = _extract_delta_neutral_event(entry)
+                # Check if user with from_address has position in user_portfolio table
+                user_portfolio = session.exec(
+                    select(UserPortfolio)
+                    .where(UserPortfolio.user_address == from_address)
+                    .where(UserPortfolio.vault_id == vault.id)
+                    .where(UserPortfolio.status == PositionStatus.ACTIVE)
+                ).first()
+                handle_position_opened_event(user_portfolio, eth_amount=eth_amount, from_address=from_address, vault=vault)
+            elif event_name == "PositionClosed":
+                _, eth_amount, from_address = _extract_delta_neutral_event(entry)
+                # Check if user with from_address has position in user_portfolio table
+                user_portfolio = session.exec(
+                    select(UserPortfolio)
+                    .where(UserPortfolio.user_address == from_address)
+                    .where(UserPortfolio.vault_id == vault.id)
+                    .where(UserPortfolio.status == PositionStatus.ACTIVE)
+                ).first()
 
-    logger.info(f"Value: {value}, from_address: {from_address}")
-
-    # Check if user with from_address has position in user_portfolio table
-    user_portfolio = session.exec(
-        select(UserPortfolio)
-        .where(UserPortfolio.user_address == from_address)
-        .where(UserPortfolio.vault_id == vault.id)
-        .where(UserPortfolio.status == PositionStatus.ACTIVE)
-    ).first()
-
-    # Call the appropriate handler based on the event name
-    handler = event_handlers[event_name]
-    user_portfolio = handler(
-        user_portfolio, value, from_address, vault=vault, latest_pps=latest_pps
-    )
+                handle_position_closed_event(user_portfolio, eth_amount=eth_amount, from_address=from_address, vault=vault)
 
     session.commit()
 

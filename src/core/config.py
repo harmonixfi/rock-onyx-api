@@ -86,10 +86,10 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
     DELTA_NEUTRAL_POSITION_OPENED_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["PositionOpened(uint256,uint256,uint256,uint256)"]
+        ["string"], ["PositionOpened(uint256,uint256)"]
     ).hex()
     DELTA_NEUTRAL_POSITION_CLOSED_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["PositionOpened(uint256,uint256,uint256,uint256,uint256,uint256,uint256)"]
+        ["string"], ["PositionOpened(uint256,uint256)"]
     ).hex()
 
     OWNER_WALLET_ADDRESS: str

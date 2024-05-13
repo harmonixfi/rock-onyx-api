@@ -5,3 +5,7 @@ from .pps_history import PricePerShareHistory, PricePerShareHistoryBase
 from .user_portfolio import UserPortfolio, PositionStatus
 from .transaction import Transaction
 from .price_feed_oracle_history import PriceFeedOracleHistory
+from .user_restaking_deposit_history import (
+    UserRestakingDepositHistory,
+    UserRestakingDepositHistoryAudit,
+)
