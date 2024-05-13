@@ -6,7 +6,7 @@ import crud
 from core.config import settings
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
-from models.vaults import Vault
+from models.vaults import NetworkChain, Vault
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
@@ -16,7 +16,7 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 # for more details: https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/28
 
 
-def seed_pps_history(session: Session, vault: Vault):
+def seed_stablecoin_pps_history(session: Session, vault: Vault):
     cnt = session.exec(select(func.count()).select_from(PricePerShareHistory)).one()
     if cnt == 0:
         pps_history_data = [
@@ -41,6 +41,21 @@ def seed_pps_history(session: Session, vault: Vault):
                 price_per_share=1.151802,
                 vault_id=vault.id,
             ),
+        ]
+
+        for pps in pps_history_data:
+            session.add(pps)
+
+        session.commit()
+
+
+def init_pps_history(session: Session, vault: Vault):
+    cnt = session.exec(select(func.count()).select_from(PricePerShareHistory)).one()
+    if cnt == 0:
+        pps_history_data = [
+            PricePerShareHistory(
+                datetime=datetime(2024, 1, 31), price_per_share=1, vault_id=vault.id
+            )
         ]
 
         for pps in pps_history_data:
@@ -115,6 +130,16 @@ def init_db(session: Session) -> None:
             contract_address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
             slug="delta-neutral-vault",
         ),
+        Vault(
+            name="Restaking Delta Neutral Vault",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address=settings.ROCKONYX_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+            slug="renzo-zircuit-restaking-delta-neutral-vault",
+            routes="['renzo', 'zircuit']",
+            category="points",
+            network_chain=NetworkChain.arbitrum_one,
+        ),
     ]
 
     for vault in vaults:
@@ -132,4 +157,9 @@ def init_db(session: Session) -> None:
     ).first()
 
     seed_vault_performance(stablecoin_vault, session)
-    seed_pps_history(session, stablecoin_vault)
+    seed_stablecoin_pps_history(session, stablecoin_vault)
+
+    renzo_zircuit_restaking = session.exec(
+        select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
+    ).first()
+    init_pps_history(session, renzo_zircuit_restaking)

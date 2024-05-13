@@ -3,6 +3,7 @@ import asyncio
 import logging
 import traceback
 from datetime import datetime, timezone
+from typing import List
 
 from sqlalchemy import select
 from sqlmodel import Session
@@ -20,6 +21,11 @@ from models import (
     UserPortfolio,
     Vault,
 )
+from models.user_restaking_deposit_history import (
+    UserRestakingDepositHistory,
+    UserRestakingDepositHistoryAudit,
+)
+from models.vaults import VaultCategory
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
@@ -35,6 +41,7 @@ REGISTERED_TOPICS = [
     settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC,
     settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC,
     settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC,
+    settings.DELTA_NEUTRAL_POSITION_OPENED_EVENT_TOPIC,
 ]
 
 
@@ -136,10 +143,105 @@ def handle_withdrawn_event(
         )
 
 
+def handle_position_opened_event(
+    user_portfolio: UserPortfolio, value, from_address, vault: Vault, *args, **kwargs
+):
+    # check if vault is delta neutral vault for restaking?
+    if vault.category == VaultCategory.points:
+        # check if user_portfolio exists
+        if user_portfolio is not None:
+            """
+            User portfolio created by Deposit event
+            position opened event notify that user has opened a position in delta neutral vault and deposit ETH to restaking pool
+            in this step, we will add 1 record to user_restaking_deposit_history table and add 1 record to user_restaking_deposit_history_audit
+
+            """
+
+            # create new record in user_restaking_deposit_history table
+            deposit_history = UserRestakingDepositHistory(
+                position_id=user_portfolio[0].id,
+                deposit_amount=value,
+                created_at=datetime.now(timezone.utc),
+            )
+            session.add(deposit_history)
+
+            # create new record in user_restaking_deposit_history_audit table
+            deposit_history_audit = UserRestakingDepositHistoryAudit(
+                deposit_history_id=deposit_history.id,
+                field_name="deposit_amount",
+                old_value="0",
+                new_value=str(value),
+                updated_by=__name__,
+            )
+            session.add(deposit_history_audit)
+            session.commit()
+        else:
+            logger.warn(
+                f"User with address {from_address} not found in user_portfolio table"
+            )
+
+
+def handle_position_closed_event(
+    user_portfolio: UserPortfolio, value, from_address, vault: Vault, *args, **kwargs
+):
+    if vault.category == VaultCategory.points:
+        # check if user_portfolio exists
+        if user_portfolio is not None:
+            """
+            when position closed, means user withdraw an amount of ETH from restaking pool
+            user may have multiple deposit history in user_restaking_deposit_history table
+            we need to decrease the Eth amount from deposit history records
+            for example, user has 2 deposit history records with deposit amount 1 ETH and 2 ETH
+            user withdraw 2.5 ETH, we need to decrease the amount from the last record first and 
+            then decrease remaining amount from the second record
+
+            """
+            deposit_recs: List[UserRestakingDepositHistory] = session.exec(
+                select(UserRestakingDepositHistory)
+                .where(UserRestakingDepositHistory.position_id == user_portfolio[0].id)
+                .order_by(UserRestakingDepositHistory.created_at.desc())
+            ).all()
+
+            remaining_amount = value
+            for rec in deposit_recs:
+                if rec.deposit_amount >= remaining_amount:
+                    rec.deposit_amount -= remaining_amount
+                    remaining_amount = 0
+                    session.add(rec)
+
+                    # add audit record
+                    deposit_history_audit = UserRestakingDepositHistoryAudit(
+                        deposit_history_id=rec.id,
+                        field_name="deposit_amount",
+                        old_value=str(rec.deposit_amount + remaining_amount),
+                        new_value=str(rec.deposit_amount),
+                        updated_by=__name__,
+                    )
+                    session.add(deposit_history_audit)
+                    break
+                else:
+                    remaining_amount -= rec.deposit_amount
+                    rec.deposit_amount = 0
+                    session.add(rec)
+
+                    # add audit record
+                    deposit_history_audit = UserRestakingDepositHistoryAudit(
+                        deposit_history_id=rec.id,
+                        field_name="deposit_amount",
+                        old_value=str(rec.deposit_amount + remaining_amount),
+                        new_value=str(rec.deposit_amount),
+                        updated_by=__name__,
+                    )
+
+            session.commit()
+
+
 event_handlers = {
     "Deposit": handle_deposit_event,
     "InitiateWithdraw": handle_initiate_withdraw_event,
     "Withdrawn": handle_withdrawn_event,
+    "PositionOpened": handle_position_opened_event,
+    "PositionClosed": handle_position_closed_event,
 }
 
 
@@ -247,6 +349,12 @@ class Web3Listener(WebSocketManager):
                 "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
             }
         )
+        self.delta_neutral_position_opened_event_filter = await self.w3.eth.filter(
+            {
+                "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                "topics": [settings.DELTA_NEUTRAL_POSITION_OPENED_EVENT_TOPIC],
+            }
+        )
 
     async def _process_new_entries(
         self, vault_address: str, event_filter: AsyncFilter, event_name: str
@@ -287,6 +395,11 @@ class Web3Listener(WebSocketManager):
                 settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
                 self.delta_neutral_complete_withdraw_event_filter,
                 "Withdrawn",
+            )
+            await self._process_new_entries(
+                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                self.delta_neutral_position_opened_event_filter,
+                "PositionOpened",
             )
         except Exception as e:
             if "filter not found" in str(e):

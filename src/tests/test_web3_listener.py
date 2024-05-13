@@ -238,3 +238,5 @@ def test_handle_event_deposit_then_init_withdraw(
     assert user_portfolio is not None
     assert user_portfolio.total_balance == 0
     assert user_portfolio.status == PositionStatus.CLOSED
+
+

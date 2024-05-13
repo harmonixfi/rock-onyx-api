@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     ROCKONYX_STABLECOIN_ADDRESS: str
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str
+    ROCKONYX_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS: str
     ROCKONYX_USDCE_USDC_PRICE_FEED_ADDRESS: str
     USDCE_USDC_CAMELOT_POOL_ADDRESS: str
 
@@ -83,6 +84,12 @@ class Settings(BaseSettings):
     ).hex()
     DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
         ["string"], ["Withdrawn(address,uint256,uint256)"]
+    ).hex()
+    DELTA_NEUTRAL_POSITION_OPENED_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["PositionOpened(uint256,uint256,uint256,uint256)"]
+    ).hex()
+    DELTA_NEUTRAL_POSITION_CLOSED_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["PositionOpened(uint256,uint256,uint256,uint256,uint256,uint256,uint256)"]
     ).hex()
 
     OWNER_WALLET_ADDRESS: str
