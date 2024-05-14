@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from core.db import engine
 from models.pps_history import PricePerShareHistory
+from models.transaction import Transaction
 from models.user_portfolio import PositionStatus, UserPortfolio
-from models.vaults import Vault, VaultCategory
+from models.vaults import NetworkChain, Vault, VaultCategory
 from web3_listener import handle_event, handle_position_opened_event
 from models import (
     UserRestakingDepositHistory,
@@ -51,6 +52,9 @@ def event_data():
 
 @pytest.fixture(autouse=True)
 def clean_user_portfolio(db_session: Session):
+    db_session.query(Transaction).delete()
+    db_session.query(UserRestakingDepositHistoryAudit).delete()
+    db_session.query(UserRestakingDepositHistory).delete()
     db_session.query(UserPortfolio).delete()
     db_session.commit()
 
@@ -245,11 +249,22 @@ def test_handle_event_deposit_then_init_withdraw(
 
 
 @patch("web3_listener._extract_stablecoin_event")
-def test_handle_position_opened_event(mock_extract_event, event_data, db_session: Session):
+def test_handle_position_opened_event(
+    mock_extract_event, event_data, db_session: Session
+):
     # Prepare data
     user_address = "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
     vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
-    vault = Vault(contract_address=vault_address, category=VaultCategory.points)
+    vault = Vault(
+        name="Restaking Delta Neutral Vault",
+        vault_capacity=4 * 1e6,
+        vault_currency="USDC",
+        contract_address=vault_address,
+        slug="renzo-zircuit-restaking-delta-neutral-vault",
+        routes="['renzo', 'zircuit']",
+        category=VaultCategory.points,
+        network_chain=NetworkChain.arbitrum_one,
+    )
     db_session.add(vault)
     db_session.commit()
 
@@ -257,17 +272,15 @@ def test_handle_position_opened_event(mock_extract_event, event_data, db_session
     mock_extract_event.return_value = (
         200,
         100,
-        "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
+        user_address,
     )  # amount, from_address
     amount = 200_000000
     shares = 200_000000
     event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
-    handle_event("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "Deposit")
+    handle_event(vault_address, event_data, "Deposit")
     user_portfolio = (
         db_session.query(UserPortfolio)
-        .filter(
-            UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
-        )
+        .filter(UserPortfolio.user_address == user_address)
         .first()
     )
     assert user_portfolio is not None
@@ -275,7 +288,34 @@ def test_handle_position_opened_event(mock_extract_event, event_data, db_session
 
     eth_amount = 1_000000
     usdc_amount = 3000_000000
-    event_data["data"] = HexBytes("0x{:064x}".format(usdc_amount) + "{:064x}".format(eth_amount))
-    handle_event("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "PositionOpened")
+    event_data["data"] = HexBytes(
+        "0x{:064x}".format(usdc_amount) + "{:064x}".format(eth_amount)
+    )
+    event_data["transactionHash"] = "0xcf7fd3f78a02f233cd7bbb64aec516997aad6212cf86d0599d7db5021aa38f7c"
+    handle_event(vault_address, event_data, "PositionOpened")
 
+    # assert UserRestakingDepositHistory record inserted
+    user_deposit_history = (
+        db_session.query(UserRestakingDepositHistory)
+        .filter(UserRestakingDepositHistory.position_id == user_portfolio.id)
+        .first()
+    )
+    assert user_deposit_history is not None
+    assert user_deposit_history.deposit_amount == eth_amount / 1e6
 
+    eth_amount = int(0.5  * 1e6)
+    usdc_amount = 3000_000000
+    event_data["data"] = HexBytes(
+        "{:064x}".format(eth_amount) + "0x{:064x}".format(usdc_amount)
+    )
+    event_data["transactionHash"] = "0xcf7fd3f78a02f233cd7bbb64aec516997aad6212cf86d0599d7db5021aa38f8c"
+    handle_event(vault_address, event_data, "PositionClosed")
+
+    # assert UserRestakingDepositHistory record updated
+    user_deposit_history = (
+        db_session.query(UserRestakingDepositHistory)
+        .filter(UserRestakingDepositHistory.position_id == user_portfolio.id)
+        .first()
+    )
+    assert user_deposit_history is not None
+    assert user_deposit_history.deposit_amount == eth_amount / 1e6

@@ -17,9 +17,9 @@ class UserRestakingDepositHistoryAudit(SQLModel, table=True):
     __tablename__ = "user_restaking_deposit_history_audit"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     deposit_history_id: uuid.UUID = Field(foreign_key="user_restaking_deposit_history.id")
-    field_name: str = Field(length=255, nullable=False)
-    old_value: str = Field(length=255, nullable=False)
-    new_value: str = Field(length=255, nullable=False)
+    field_name: str = Field(nullable=False)
+    old_value: str = Field(nullable=False)
+    new_value: str = Field(nullable=False)
     updated_at: datetime = Field(default=datetime.now(tz=timezone.utc))
-    updated_by: str = Field(length=255, nullable=False)
+    updated_by: str = Field(nullable=False)
     created_at: datetime = Field(default=datetime.now(tz=timezone.utc))

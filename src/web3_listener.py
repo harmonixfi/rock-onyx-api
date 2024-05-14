@@ -310,7 +310,7 @@ def handle_event(vault_address: str, entry, event_name):
     else:
         if vault.category == VaultCategory.points:
             if event_name == "PositionOpened":
-                eth_amount, _, from_address = _extract_delta_neutral_event(entry)
+                _, eth_amount, from_address = _extract_delta_neutral_event(entry)
                 # Check if user with from_address has position in user_portfolio table
                 user_portfolio = session.exec(
                     select(UserPortfolio)
@@ -320,7 +320,7 @@ def handle_event(vault_address: str, entry, event_name):
                 ).first()
                 handle_position_opened_event(user_portfolio, eth_amount=eth_amount, from_address=from_address, vault=vault)
             elif event_name == "PositionClosed":
-                _, eth_amount, from_address = _extract_delta_neutral_event(entry)
+                eth_amount, _, from_address = _extract_delta_neutral_event(entry)
                 # Check if user with from_address has position in user_portfolio table
                 user_portfolio = session.exec(
                     select(UserPortfolio)
