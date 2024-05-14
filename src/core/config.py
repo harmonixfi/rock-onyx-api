@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str] = None
     NEXT_PUBLIC_USDC_ADDRESS: Optional[str] = None
 
+    # RESTAKING
+    RENZO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/"
+    ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
+    KELPDAO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/"
+
     ARBISCAN_API_KEY: str
     ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
