@@ -15,7 +15,7 @@ from sqlmodel import Session, col, select
 from core.db import engine
 from core import constants
 from models.point_distribution_history import PointDistributionHistory
-from models.user_points import UserPoints
+from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
@@ -30,9 +30,7 @@ GET_POINTS_SERVICE = {
 }
 
 
-def get_earned_points(
-    vault_address: str, partner_name: str
-) -> EarnedRestakingPoints:
+def get_earned_points(vault_address: str, partner_name: str) -> EarnedRestakingPoints:
     assert partner_name in GET_POINTS_SERVICE, f"Partner {partner_name} not supported"
 
     get_points_func = GET_POINTS_SERVICE[partner_name]
@@ -60,31 +58,74 @@ def distribute_points_to_users(
     vault_id: UUID,
     user_positions: List[UserPortfolio],
     earned_points: float,
-    user_percentage: Dict[str, float],
     partner_name: str,
 ):
     """
     Distribute points to users based on their share percentages.
     """
+    total_deposit_amount = sum([user.init_deposit for user in user_positions])
     for user in user_positions:
+        shares_pct = user.init_deposit / total_deposit_amount
+
+        old_point_value = 0
         user_points = session.exec(
             select(UserPoints)
             .where(UserPoints.wallet_address == user.user_address)
             .where(UserPoints.partner_name == partner_name)
             .where(UserPoints.vault_id == vault_id)
         ).first()
+        
         if user_points:
-            user_points.points += earned_points * user_percentage[user.user_address]
+            old_point_value = user_points.points
+            user_points.points += earned_points * shares_pct
 
         else:
             user_points = UserPoints(
                 wallet_address=user.user_address,
-                points=earned_points * user_percentage[user.user_address],
+                points=earned_points * shares_pct,
                 partner_name=partner_name,
-                vault_id=vault_id
+                vault_id=vault_id,
             )
 
         session.add(user_points)
+        session.commit()
+
+        # add UserPointAudit record
+        audit = UserPointAudit(
+            user_points_id=user_points.id,
+            old_value=old_point_value,
+            new_value=user_points.points,
+        )
+        session.add(audit)
+
+
+def distribute_points(
+    vault: Vault,
+    partner_name: str,
+    user_positions: List[UserPortfolio],
+    earned_points_in_period: float,
+    total_earned_points: EarnedRestakingPoints,
+):
+
+    # calculate user earn points in the period
+    distribute_points_to_users(
+        vault_id=vault.id,
+        user_positions=user_positions,
+        earned_points=earned_points_in_period,
+        partner_name=partner_name,
+    )
+
+    # save the point distribution history
+    point_distribution = PointDistributionHistory(
+        vault_id=vault.id,
+        partner_name=partner_name,
+        point=(
+            total_earned_points.total_points
+            if partner_name != constants.EIGENLAYER
+            else total_earned_points.eigen_layer_points
+        ),
+    )
+    session.add(point_distribution)
 
 
 def calculate_point_distributions(vault: Vault):
@@ -97,13 +138,6 @@ def calculate_point_distributions(vault: Vault):
         .where(UserPortfolio.status == PositionStatus.ACTIVE)
     ).all()
 
-    # calculate the percentage of shares for each user
-    total_deposit_amount = sum([user.init_deposit for user in user_positions])
-    user_percentage = {}
-    for user in user_positions:
-        pct = user.init_deposit / total_deposit_amount
-        user_percentage[user.user_address] = pct
-
     partners = json.loads(vault.routes)
 
     for partner_name in partners:
@@ -114,47 +148,32 @@ def calculate_point_distributions(vault: Vault):
         # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
         earned_points_in_period = total_earned_points.total_points - prev_point
 
-        # calculate user earn points in the period
-        distribute_points_to_users(
-            vault_id=vault.id,
-            user_positions=user_positions,
-            earned_points=earned_points_in_period,
-            user_percentage=user_percentage,
-            partner_name=partner_name,
+        distribute_points(
+            vault,
+            partner_name,
+            user_positions,
+            earned_points_in_period,
+            total_earned_points,
         )
-
-        # save the point distribution history
-        point_distribution = PointDistributionHistory(
-            vault_id=vault.id,
-            partner_name=partner_name,
-            point=total_earned_points.total_points,
-        )
-        session.add(point_distribution)
 
         if partner_name in {constants.RENZO, constants.KELPDAO}:
             # distribute eigenlayer points to user
-            prev_eigen_point = get_previous_point_distribution(vault.id, constants.EIGENLAYER)
+            prev_eigen_point = get_previous_point_distribution(
+                vault.id, constants.EIGENLAYER
+            )
 
             # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
             earned_eigen_points_in_period = (
                 total_earned_points.eigen_layer_points - prev_eigen_point
             )
 
-            distribute_points_to_users(
-                vault_id=vault.id,
-                user_positions=user_positions,
-                earned_points=earned_eigen_points_in_period,
-                user_percentage=user_percentage,
-                partner_name=constants.EIGENLAYER,
+            distribute_points(
+                vault,
+                constants.EIGENLAYER,
+                user_positions,
+                earned_eigen_points_in_period,
+                total_earned_points,
             )
-
-            # save the point distribution history
-            point_distribution = PointDistributionHistory(
-            vault_id=vault.id,
-                partner_name=constants.EIGENLAYER,
-                point=total_earned_points.eigen_layer_points,
-            )
-            session.add(point_distribution)
 
     session.commit()
 

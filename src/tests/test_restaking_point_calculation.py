@@ -8,6 +8,7 @@ from bg_tasks.restaking_point_calculation import main
 from core import constants
 from core.db import engine
 from models import UserPoints, UserPortfolio, Vault, PointDistributionHistory
+from models.user_points import UserPointAudit
 from schemas import EarnedRestakingPoints
 
 
@@ -20,6 +21,7 @@ def db_session():
 @pytest.fixture(autouse=True)
 def clean_user_portfolio(db_session: Session):
     db_session.query(PointDistributionHistory).delete()
+    db_session.query(UserPointAudit).delete()
     db_session.query(UserPoints).delete()
     db_session.query(UserPortfolio).delete()
     db_session.query(Vault).delete()
@@ -156,34 +158,38 @@ def test_calculate_points_case2(db_session: Session):
 
     user1 = "0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa"
     user2 = "0xBC05da14287317FE12B1a2b5a0E1d756Ff1802Aa"
-    user1_points = (
-        db_session.query(UserPoints)
-        .filter_by(wallet_address=user1)
-        .all()
-    )
+    user1_points = db_session.query(UserPoints).filter_by(wallet_address=user1).all()
     # filter user1_points by renzo
     assert len(user1_points) > 0
-    renzo_points = next(filter(lambda x: x.partner_name == constants.RENZO, user1_points))
+    renzo_points = next(
+        filter(lambda x: x.partner_name == constants.RENZO, user1_points)
+    )
     assert round(renzo_points.points, 2) == 66.67
 
-    zircuit_points = next(filter(lambda x: x.partner_name == constants.ZIRCUIT, user1_points))
+    zircuit_points = next(
+        filter(lambda x: x.partner_name == constants.ZIRCUIT, user1_points)
+    )
     assert round(zircuit_points.points, 2) == 66.67
 
-    eigen_points = next(filter(lambda x: x.partner_name == constants.EIGENLAYER, user1_points))
+    eigen_points = next(
+        filter(lambda x: x.partner_name == constants.EIGENLAYER, user1_points)
+    )
     assert round(eigen_points.points, 2) == 66.67
 
-    user2_points = (
-        db_session.query(UserPoints)
-        .filter_by(wallet_address=user2)
-        .all()
-    )
+    user2_points = db_session.query(UserPoints).filter_by(wallet_address=user2).all()
     # filter user1_points by renzo
     assert len(user2_points) > 0
-    renzo_points = next(filter(lambda x: x.partner_name == constants.RENZO, user2_points))
+    renzo_points = next(
+        filter(lambda x: x.partner_name == constants.RENZO, user2_points)
+    )
     assert round(renzo_points.points, 2) == 33.33
 
-    zircuit_points = next(filter(lambda x: x.partner_name == constants.ZIRCUIT, user2_points))
+    zircuit_points = next(
+        filter(lambda x: x.partner_name == constants.ZIRCUIT, user2_points)
+    )
     assert round(zircuit_points.points, 2) == 33.33
 
-    eigen_points = next(filter(lambda x: x.partner_name == constants.EIGENLAYER, user2_points))
+    eigen_points = next(
+        filter(lambda x: x.partner_name == constants.EIGENLAYER, user2_points)
+    )
     assert round(eigen_points.points, 2) == 33.33
