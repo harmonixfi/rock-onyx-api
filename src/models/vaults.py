@@ -35,8 +35,8 @@ class VaultBase(sqlmodel.SQLModel):
     next_close_round_date: datetime | None = None
     slug: str | None = None
     routes: str | None = None
-    category: VaultCategory = sqlmodel.Field(default=VaultCategory.real_yield)
-    network_chain: NetworkChain = sqlmodel.Field(default=NetworkChain.arbitrum_one)
+    category: VaultCategory = sqlmodel.Field(default=VaultCategory.real_yield, nullable=True)
+    network_chain: NetworkChain = sqlmodel.Field(default=NetworkChain.arbitrum_one, nullable=True)
 
 
 # Database model, database table inferred from class name

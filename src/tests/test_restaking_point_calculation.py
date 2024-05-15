@@ -128,7 +128,7 @@ def insert_test_data_case_2(session: Session):
     session.commit()
 
 
-def mock_get_earned_points(vault_addresses: List[str], partner_name: str):
+def mock_get_earned_points(vault_address: str, partner_name: str):
     if partner_name == constants.RENZO:
         return EarnedRestakingPoints(
             total_points=100,
