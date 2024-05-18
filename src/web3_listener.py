@@ -210,43 +210,66 @@ class Web3Listener(WebSocketManager):
         super().__init__(connection_url, logger=logger)
 
     async def init_event_filters(self):
-        self.wheel_deposit_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
-            }
-        )
-        self.wheel_init_withdraw_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
-            }
-        )
-        self.wheel_complete_withdraw_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                "topics": [settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS],
-            }
-        )
-
-        self.delta_neutral_deposit_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
-            }
-        )
-        self.delta_neutral_init_withdraw_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
-            }
-        )
-        self.delta_neutral_complete_withdraw_event_filter = await self.w3.eth.filter(
-            {
-                "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
-            }
-        )
+        self.filters = {
+            "wheel_deposit_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+                    "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
+                }
+            ),
+            "wheel_init_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+                    "topics": [
+                        settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS
+                    ],
+                }
+            ),
+            "wheel_complete_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+                    "topics": [
+                        settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS
+                    ],
+                }
+            ),
+            "delta_neutral_deposit_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
+                }
+            ),
+            "delta_neutral_init_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
+                }
+            ),
+            "delta_neutral_complete_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
+                }
+            ),
+            "renzo_delta_neutral_deposit_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
+                }
+            ),
+            "renzo_delta_neutral_init_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
+                }
+            ),
+            "renzo_delta_neutral_complete_withdraw_event_filter": await self.w3.eth.filter(
+                {
+                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                    "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
+                }
+            ),
+        }
 
     async def _process_new_entries(
         self, vault_address: str, event_filter: AsyncFilter, event_name: str
@@ -257,37 +280,22 @@ class Web3Listener(WebSocketManager):
 
     async def handle_events(self):
         try:
-            await self._process_new_entries(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                self.wheel_deposit_event_filter,
-                "Deposit",
-            )
-            await self._process_new_entries(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                self.wheel_init_withdraw_event_filter,
-                "InitiateWithdraw",
-            )
-            await self._process_new_entries(
-                settings.ROCKONYX_STABLECOIN_ADDRESS,
-                self.wheel_complete_withdraw_event_filter,
-                "Withdrawn",
-            )
-
-            await self._process_new_entries(
-                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                self.delta_neutral_deposit_event_filter,
-                "Deposit",
-            )
-            await self._process_new_entries(
-                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                self.delta_neutral_init_withdraw_event_filter,
-                "InitiateWithdraw",
-            )
-            await self._process_new_entries(
-                settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                self.delta_neutral_complete_withdraw_event_filter,
-                "Withdrawn",
-            )
+            for event_name, filter_attr, contract_address in [
+                ("Deposit", "wheel_deposit_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
+                ("InitiateWithdraw", "wheel_init_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
+                ("Withdrawn", "wheel_complete_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
+                ("Deposit", "delta_neutral_deposit_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
+                ("InitiateWithdraw", "delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
+                ("Withdrawn", "delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
+                ("Deposit", "renzo_delta_neutral_deposit_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
+                ("InitiateWithdraw", "renzo_delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
+                ("Withdrawn", "renzo_delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
+            ]:
+                await self._process_new_entries(
+                    contract_address,
+                    self.filters[filter_attr],
+                    event_name,
+                )
         except Exception as e:
             if "filter not found" in str(e):
                 logger.info("Re-create event filters")
@@ -312,6 +320,14 @@ class Web3Listener(WebSocketManager):
                     "logs",
                     {
                         "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+                    },
+                )
+                logger.info(f"Subscription response: {subscription_id}")
+
+                subscription_id = await self.w3.eth.subscribe(
+                    "logs",
+                    {
+                        "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
                     },
                 )
                 logger.info(f"Subscription response: {subscription_id}")
