@@ -1,9 +1,11 @@
 # import dependencies
 import asyncio
+import json
 import logging
 import traceback
 from datetime import datetime, timezone
 
+import seqlog
 from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
@@ -13,19 +15,26 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
-from models import (
-    PositionStatus,
-    PricePerShareHistory,
-    Transaction,
-    UserPortfolio,
-    Vault,
-)
+from models import (PositionStatus, PricePerShareHistory, Transaction,
+                    UserPortfolio, Vault)
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
+
 
 # # Initialize logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+seqlog.log_to_seq(
+   server_url=f"http://{settings.SEQ_SERVER_URL}:5341/",
+   api_key=settings.SEQ_SERVER_API_KEY,
+   level=logging.INFO,
+   batch_size=10,
+   auto_flush_timeout=10,  # seconds
+   override_root_logger=True,
+   json_encoder_class=json.encoder.JSONEncoder,  # Optional; only specify this if you want to use a custom JSON encoder
+   support_extra_properties=True # Optional; only specify this if you want to pass additional log record properties via the "extra" argument.
+)
 
 
 REGISTERED_TOPICS = [

@@ -107,6 +107,10 @@ class Settings(BaseSettings):
     ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
     KELPDAO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/"
 
+    # Seq log
+    SEQ_SERVER_URL: Optional[str] = None
+    SEQ_SERVER_API_KEY: Optional[str] = None
+
     ARBISCAN_API_KEY: str
     ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")

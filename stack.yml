@@ -35,6 +35,18 @@ services:
       - db
     networks:
       - onyx_network
+  
+  seq_logs:
+    image: datalust/seq:latest
+    ports:
+      - "80:80"
+      - "5341:5341"
+    environment:
+      - ACCEPT_EULA=Y
+      - BASE_URI=https://localhost
+      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=QG9cIOpv29JqzfeKpieAiaGY2AjUikUvIqRd4nUoh313bv9z6WArF55fF4DYKDxkoM5dC2MqfDYG8MQcmU+uuCC7kgKg0KGtKkcHxmAqM/X6
+    networks:
+      - onyx_network
 
 
 networks:
