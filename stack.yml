@@ -35,6 +35,29 @@ services:
       - db
     networks:
       - onyx_network
+
+  listener:
+    image: 'listener_runner:${TAG-latest}'
+    env_file:
+      - .env
+    environment:
+      - SERVER_NAME=${SERVER_NAME?Variable not set}
+      - SERVER_HOST=${SERVER_HOST?Variable not set}
+      # Allow explicit env var override for tests
+      - CRONTAB="cat crontab"
+      - TZ="UTC"
+    volumes:
+      - /app-logs:/app-logs
+    build:
+      context: .
+      dockerfile: listener.dockerfile
+      args:
+        SEQ_SERVER_API_KEY: ${SEQ_SERVER_API_KEY}
+    depends_on:
+      - db
+      - seq_logs
+    networks:
+      - onyx_network
   
   seq_logs:
     image: datalust/seq:latest

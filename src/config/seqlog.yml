@@ -32,8 +32,8 @@ handlers:
     formatter: seq
 
     # Seq-specific settings (add any others you need, they're just kwargs for SeqLogHandler's constructor).
-    server_url: 'http://localhost:5341'
-    api_key: '4Qc2YsYCiUxim7aTNW0e'
+    server_url: 'http://seq_logs:5341'
+    api_key: '{{SEQ_SERVER_API_KEY}}'
 
     # Use a custom JSON encoder, if you need to.
     json_encoder_class: json.encoder.JSONEncoder

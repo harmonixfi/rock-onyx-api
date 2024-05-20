@@ -56,7 +56,6 @@ class Settings(BaseSettings):
         "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
     )
 
-    WALLET_ADDRESS: str
     WSTETH_ADDRESS: str = "0x5979D7b546E38E414F7E9822514be443A4800529"
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"

@@ -15,26 +15,22 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
-from models import (PositionStatus, PricePerShareHistory, Transaction,
-                    UserPortfolio, Vault)
+from models import (
+    PositionStatus,
+    PricePerShareHistory,
+    Transaction,
+    UserPortfolio,
+    Vault,
+)
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
+if settings.ENVIRONMENT_NAME == "Production":
+    seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-seqlog.log_to_seq(
-   server_url=f"http://{settings.SEQ_SERVER_URL}:5341/",
-   api_key=settings.SEQ_SERVER_API_KEY,
-   level=logging.INFO,
-   batch_size=10,
-   auto_flush_timeout=10,  # seconds
-   override_root_logger=True,
-   json_encoder_class=json.encoder.JSONEncoder,  # Optional; only specify this if you want to use a custom JSON encoder
-   support_extra_properties=True # Optional; only specify this if you want to pass additional log record properties via the "extra" argument.
-)
 
 
 REGISTERED_TOPICS = [
@@ -290,15 +286,51 @@ class Web3Listener(WebSocketManager):
     async def handle_events(self):
         try:
             for event_name, filter_attr, contract_address in [
-                ("Deposit", "wheel_deposit_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("InitiateWithdraw", "wheel_init_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("Withdrawn", "wheel_complete_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("Deposit", "delta_neutral_deposit_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("InitiateWithdraw", "delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Withdrawn", "delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Deposit", "renzo_delta_neutral_deposit_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("InitiateWithdraw", "renzo_delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Withdrawn", "renzo_delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
+                (
+                    "Deposit",
+                    "wheel_deposit_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "wheel_init_withdraw_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "wheel_complete_withdraw_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "Deposit",
+                    "delta_neutral_deposit_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "delta_neutral_init_withdraw_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "delta_neutral_complete_withdraw_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Deposit",
+                    "renzo_delta_neutral_deposit_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "renzo_delta_neutral_init_withdraw_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "renzo_delta_neutral_complete_withdraw_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
             ]:
                 await self._process_new_entries(
                     contract_address,
