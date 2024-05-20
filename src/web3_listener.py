@@ -14,7 +14,6 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_console, setup_logging_to_file
 from models import (
     PositionStatus,
     PricePerShareHistory,
@@ -25,7 +24,7 @@ from models import (
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
-if settings.ENVIRONMENT_NAME == "Production":
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
     seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
@@ -400,8 +399,8 @@ class Web3Listener(WebSocketManager):
 
 
 if __name__ == "__main__":
-    setup_logging_to_console(level=logging.INFO, logger=logger)
-    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    # setup_logging_to_console(level=logging.INFO, logger=logger)
+    # setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
 
     connection_url = (
         settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
