@@ -33,6 +33,12 @@ delta_neutral_contract = w3.eth.contract(
     abi=rockonyx_delta_neutral_vault_abi,
 )
 
+rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxRestakingDeltaNeutralVault")
+restaking_delta_neutral_contract = w3.eth.contract(
+    address=settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+    abi=rockonyx_delta_neutral_vault_abi,
+)
+
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(
@@ -85,8 +91,12 @@ async def get_portfolio_info(
             shares = delta_neutral_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
+        elif vault.contract_address == settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS:
+            price_per_share = restaking_delta_neutral_contract.functions.pricePerShare().call()
+            shares = restaking_delta_neutral_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
         else:
-
             # calculate next Friday from today
             position.next_close_round_date = (
                 datetime.datetime.now()
