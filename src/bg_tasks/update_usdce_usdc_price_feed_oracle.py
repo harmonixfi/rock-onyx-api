@@ -83,9 +83,9 @@ async def main():
         ).all()
 
         current_price = await get_current_pool_price()
-        average_price = sum(
+        average_price = (sum(
             item.latest_price for item in price_feed_oracle_histories
-        ) + current_price / (len(price_feed_oracle_histories) + 1)
+        ) + current_price) / (len(price_feed_oracle_histories) + 1)
 
         await update_lastest_price(average_price)
 
