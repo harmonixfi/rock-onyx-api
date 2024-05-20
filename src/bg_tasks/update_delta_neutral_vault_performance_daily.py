@@ -1,16 +1,15 @@
+import logging
 import uuid
 from datetime import datetime, timedelta
 
 import pandas as pd
 import pendulum
+import seqlog
 from sqlmodel import Session, select
 from web3 import Web3
 
-from bg_tasks.utils import (
-    calculate_pps_statistics,
-    get_before_price_per_shares,
-    calculate_roi,
-)
+from bg_tasks.utils import (calculate_pps_statistics, calculate_roi,
+                            get_before_price_per_shares)
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -20,6 +19,13 @@ from models.vault_performance import VaultPerformance
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.market_data import get_price
+
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    seqlog.configure_from_file("./config/seqlog.yml")
+
+# # Initialize logger
+logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
+logger.setLevel(logging.INFO)
 
 # Connect to the Ethereum network
 if settings.ENVIRONMENT_NAME == "Production":
@@ -239,24 +245,29 @@ def calculate_performance(vault_id: uuid.UUID):
 
 # Main Execution
 def main():
-    # Get the vault from the Vault table with name = "Delta Neutral Vault"
-    vault = session.exec(
-        select(Vault).where(Vault.name == "Delta Neutral Vault")
-    ).first()
+    try:
+        # Get the vault from the Vault table with name = "Delta Neutral Vault"
+        vault = session.exec(
+            select(Vault).where(Vault.name == "Delta Neutral Vault")
+        ).first()
 
-    new_performance_rec = calculate_performance(vault.id)
-    # Add the new performance record to the session and commit
-    session.add(new_performance_rec)
+        new_performance_rec = calculate_performance(vault.id)
+        # Add the new performance record to the session and commit
+        session.add(new_performance_rec)
 
-    # Update the vault with the new information
-    vault.ytd_apy = new_performance_rec.apy_ytd
-    vault.monthly_apy = new_performance_rec.apy_1m
-    vault.weekly_apy = new_performance_rec.apy_1w
-    # vault.current_round = get_current_round()
-    vault.current_round = None  # TODO: Remove this line once the contract is updated
-    vault.next_close_round_date = None
+        # Update the vault with the new information
+        vault.ytd_apy = new_performance_rec.apy_ytd
+        vault.monthly_apy = new_performance_rec.apy_1m
+        vault.weekly_apy = new_performance_rec.apy_1w
+        # vault.current_round = get_current_round()
+        vault.current_round = None  # TODO: Remove this line once the contract is updated
+        vault.next_close_round_date = None
 
-    session.commit()
+        session.commit()
+    except Exception as e:
+        logger.error(
+            "An error occurred while updating delta neutral performance: %s", e, exc_info=True
+        )
 
 
 if __name__ == "__main__":

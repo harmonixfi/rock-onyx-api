@@ -8,19 +8,22 @@ In our system, we have multiple vaults that have VaultCategory = points, we need
 """
 
 import json
+import logging
 from typing import Dict, List
 from uuid import UUID
+
+import seqlog
 from sqlmodel import Session, col, select
 
-from core.db import engine
 from core import constants
+from core.config import settings
+from core.db import engine
 from models.point_distribution_history import PointDistributionHistory
 from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
-from services import renzo_service
-from services import zircuit_service
+from services import renzo_service, zircuit_service
 
 session = Session(engine)
 
@@ -28,6 +31,14 @@ GET_POINTS_SERVICE = {
     "renzo": renzo_service.get_points,
     "zircuit": zircuit_service.get_points,
 }
+
+
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    seqlog.configure_from_file("./config/seqlog.yml")
+
+# # Initialize logger
+logger = logging.getLogger("restaking_point_calculation")
+logger.setLevel(logging.INFO)
 
 
 def get_earned_points(vault_address: str, partner_name: str) -> EarnedRestakingPoints:
@@ -74,7 +85,7 @@ def distribute_points_to_users(
             .where(UserPoints.partner_name == partner_name)
             .where(UserPoints.vault_id == vault_id)
         ).first()
-        
+
         if user_points:
             old_point_value = user_points.points
             user_points.points += earned_points * shares_pct
@@ -87,6 +98,7 @@ def distribute_points_to_users(
                 vault_id=vault_id,
             )
 
+        logger.info("User %s, Share pct = %s, Points: %s", user.user_address, shares_pct, user_points.points)
         session.add(user_points)
         session.commit()
 
@@ -137,13 +149,19 @@ def calculate_point_distributions(vault: Vault):
         .where(UserPortfolio.vault_id == vault.id)
         .where(UserPortfolio.status == PositionStatus.ACTIVE)
     ).all()
+    logger.info("Total user positions of vault %s: %s", vault.name, len(user_positions))
 
     partners = json.loads(vault.routes)
 
     for partner_name in partners:
         # get earned points for the partner
         prev_point = get_previous_point_distribution(vault.id, partner_name)
+        logger.info("Vault %s, partner: %s, Previous point distribution: %s", vault.name, partner_name, prev_point)
+
         total_earned_points = get_earned_points(vault.contract_address, partner_name)
+        logger.info(
+            "Total earned points for partner %s: %s", partner_name, total_earned_points.total_points
+        )
 
         # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
         earned_points_in_period = total_earned_points.total_points - prev_point
@@ -161,10 +179,14 @@ def calculate_point_distributions(vault: Vault):
             prev_eigen_point = get_previous_point_distribution(
                 vault.id, constants.EIGENLAYER
             )
+            logger.info("Vault %s, partner: %s, Previous point distribution: %s", vault.name, constants.EIGENLAYER, prev_point)
 
             # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
             earned_eigen_points_in_period = (
                 total_earned_points.eigen_layer_points - prev_eigen_point
+            )
+            logger.info(
+                "Total earned points for partner %s: %s", partner_name, total_earned_points.eigen_layer_points
             )
 
             distribute_points(
@@ -185,7 +207,16 @@ def main():
     ).all()
 
     for vault in vaults:
-        calculate_point_distributions(vault)
+        try:
+            logger.info(f"Calculating points for vault {vault.name}")
+            calculate_point_distributions(vault)
+        except Exception as e:
+            logger.error(
+                "An error occurred while calculating points for vault %s: %s",
+                vault.name,
+                e,
+                exc_info=True,
+            )
 
     session.commit()
 

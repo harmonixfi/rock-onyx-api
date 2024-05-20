@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime, timedelta
+import logging
 
+import seqlog
 import pandas as pd
 from sqlmodel import Session, select
 from web3 import AsyncWeb3, Web3
@@ -12,6 +14,13 @@ from core.db import engine
 from models.price_feed_oracle_history import PriceFeedOracleHistory
 from utils.calculate_price import sqrt_price_to_price
 from utils.web3_utils import sign_and_send_transaction
+
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    seqlog.configure_from_file("./config/seqlog.yml")
+
+# # Initialize logger
+logger = logging.getLogger("update_usdce_usdc_price_feed_oracle")
+logger.setLevel(logging.INFO)
 
 # Connect to the Ethereum network
 if settings.ENVIRONMENT_NAME == "Production":
@@ -65,28 +74,33 @@ session = Session(engine)
 
 # Main Execution
 async def main():
-    price_feed_oracle_histories = session.exec(
-        select(PriceFeedOracleHistory)
-        .where(PriceFeedOracleHistory.token_pair == "usdce_usdc")
-        .order_by(PriceFeedOracleHistory.datetime.desc())
-        .limit(10)
-    ).all()
+    try:
+        price_feed_oracle_histories = session.exec(
+            select(PriceFeedOracleHistory)
+            .where(PriceFeedOracleHistory.token_pair == "usdce_usdc")
+            .order_by(PriceFeedOracleHistory.datetime.desc())
+            .limit(10)
+        ).all()
 
-    current_price = await get_current_pool_price()
-    average_price = sum(
-        item.latest_price for item in price_feed_oracle_histories
-    ) + current_price / (len(price_feed_oracle_histories) + 1)
+        current_price = await get_current_pool_price()
+        average_price = sum(
+            item.latest_price for item in price_feed_oracle_histories
+        ) + current_price / (len(price_feed_oracle_histories) + 1)
 
-    await update_lastest_price(average_price)
+        await update_lastest_price(average_price)
 
-    new_price_feed = PriceFeedOracleHistory(
-        datetime=datetime.now().date(),
-        token_pair="usdce_usdc",
-        latest_price=average_price,
-    )
+        new_price_feed = PriceFeedOracleHistory(
+            datetime=datetime.now().date(),
+            token_pair="usdce_usdc",
+            latest_price=average_price,
+        )
 
-    session.add(new_price_feed)
-    session.commit()
+        session.add(new_price_feed)
+        session.commit()
+    except Exception as e:
+        logger.error(
+            "An error occurred while updating the latest price: %s", e, exc_info=True
+        )
 
 
 if __name__ == "__main__":

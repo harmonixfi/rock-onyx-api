@@ -1,9 +1,11 @@
 # import dependencies
 import asyncio
+import json
 import logging
 import traceback
 from datetime import datetime, timezone
 
+import seqlog
 from sqlalchemy import select
 from sqlmodel import Session
 from web3 import Web3
@@ -12,7 +14,6 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_console, setup_logging_to_file
 from models import (
     PositionStatus,
     PricePerShareHistory,
@@ -22,6 +23,9 @@ from models import (
 )
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
+
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
 logger = logging.getLogger(__name__)
@@ -281,15 +285,51 @@ class Web3Listener(WebSocketManager):
     async def handle_events(self):
         try:
             for event_name, filter_attr, contract_address in [
-                ("Deposit", "wheel_deposit_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("InitiateWithdraw", "wheel_init_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("Withdrawn", "wheel_complete_withdraw_event_filter", settings.ROCKONYX_STABLECOIN_ADDRESS),
-                ("Deposit", "delta_neutral_deposit_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("InitiateWithdraw", "delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Withdrawn", "delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Deposit", "renzo_delta_neutral_deposit_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("InitiateWithdraw", "renzo_delta_neutral_init_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
-                ("Withdrawn", "renzo_delta_neutral_complete_withdraw_event_filter", settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS),
+                (
+                    "Deposit",
+                    "wheel_deposit_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "wheel_init_withdraw_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "wheel_complete_withdraw_event_filter",
+                    settings.ROCKONYX_STABLECOIN_ADDRESS,
+                ),
+                (
+                    "Deposit",
+                    "delta_neutral_deposit_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "delta_neutral_init_withdraw_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "delta_neutral_complete_withdraw_event_filter",
+                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Deposit",
+                    "renzo_delta_neutral_deposit_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "InitiateWithdraw",
+                    "renzo_delta_neutral_init_withdraw_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
+                (
+                    "Withdrawn",
+                    "renzo_delta_neutral_complete_withdraw_event_filter",
+                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+                ),
             ]:
                 await self._process_new_entries(
                     contract_address,
@@ -359,8 +399,8 @@ class Web3Listener(WebSocketManager):
 
 
 if __name__ == "__main__":
-    setup_logging_to_console(level=logging.INFO, logger=logger)
-    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    # setup_logging_to_console(level=logging.INFO, logger=logger)
+    # setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
 
     connection_url = (
         settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL

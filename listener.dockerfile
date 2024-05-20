@@ -39,4 +39,9 @@ RUN mkdir -p /app-logs/
 
 COPY ./src /app
 ENV PYTHONPATH=/app
+
+# Replace {{SEQ_SERVER_API_KEY}} with environment variable SEQ_SERVER_API_KEY in seqlog.yml
+ARG SEQ_SERVER_API_KEY
+RUN sed -i "s/{{SEQ_SERVER_API_KEY}}/${SEQ_SERVER_API_KEY}/g" /app/config/seqlog.yml
+
 CMD ["python", "-m", "web3_listener"]
