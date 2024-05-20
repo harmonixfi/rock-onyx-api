@@ -25,6 +25,7 @@ from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
 if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    print("initializing seqlog")
     seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
