@@ -14,6 +14,7 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models import (
     PositionStatus,
     PricePerShareHistory,
@@ -404,7 +405,7 @@ class Web3Listener(WebSocketManager):
 
 if __name__ == "__main__":
     # setup_logging_to_console(level=logging.INFO, logger=logger)
-    # setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
 
     connection_url = (
         settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
