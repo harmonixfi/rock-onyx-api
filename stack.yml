@@ -64,10 +64,12 @@ services:
     ports:
       - "80:80"
       - "5341:5341"
+    volumes:
+      - /seq/data:/data
     environment:
       - ACCEPT_EULA=Y
       - BASE_URI=https://localhost
-      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=QG9cIOpv29JqzfeKpieAiaGY2AjUikUvIqRd4nUoh313bv9z6WArF55fF4DYKDxkoM5dC2MqfDYG8MQcmU+uuCC7kgKg0KGtKkcHxmAqM/X6
+      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=QC9tV8PCjecjXF20rGk2szhhdL4kkgq+PO+BYSMcq8rAZYPlaQV4wPNJc7JBJzaIpq1O2rYl3LDpk07Pudxh1o4GZw6Y5PJC87x9JQ9ot0La
     networks:
       - onyx_network
 
