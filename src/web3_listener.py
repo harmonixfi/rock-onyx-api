@@ -186,7 +186,10 @@ def handle_event(vault_address: str, entry, event_name):
     # Extract the value, shares and from_address from the event
     if vault_address == settings.ROCKONYX_STABLECOIN_ADDRESS:
         value, _, from_address = _extract_stablecoin_event(entry)
-    elif vault_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
+    elif vault_address in {
+        settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+        settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+    }:
         value, _, from_address = _extract_delta_neutral_event(entry)
     else:
         raise ValueError("Invalid vault address")

@@ -1,5 +1,7 @@
 FROM python:3.10-alpine
 
+ARG SEQ_SERVER_API_KEY
+
 # Set the timezone to UTC
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
@@ -38,10 +40,10 @@ RUN curl -fsSLO "$SUPERCRONIC_URL" \
 RUN mkdir -p /app-logs/
 
 COPY ./src /app
-ENV PYTHONPATH=/app
 
 # Replace {{SEQ_SERVER_API_KEY}} with environment variable SEQ_SERVER_API_KEY in seqlog.yml
-ARG SEQ_SERVER_API_KEY
 RUN sed -i "s/{{SEQ_SERVER_API_KEY}}/${SEQ_SERVER_API_KEY}/g" /app/config/seqlog.yml
+
+ENV PYTHONPATH=/app
 
 CMD ["python", "-m", "web3_listener"]
