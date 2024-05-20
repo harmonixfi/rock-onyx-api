@@ -38,20 +38,8 @@ class WebSocketManager:
                     self.websocket.recv(), timeout=read_timeout
                 )
                 yield message
-            except ConnectionClosedError as e:
-                if on_disconnect:
-                    on_disconnect()
-                self.logger.error("Websocket connection close")
-                self.logger.error(e)
-                self.logger.error(traceback.format_exc())
-                await self.reconnect()
-            except ConnectionClosedOK as e:
-                if on_disconnect:
-                    on_disconnect()
-                self.logger.error("Websocket connection close")
-                self.logger.error(e)
-                self.logger.error(traceback.format_exc())
-                await self.reconnect()
+            except (ConnectionClosedError, ConnectionClosedOK) as e:
+                raise e
             except asyncio.TimeoutError:
                 await asyncio.sleep(backoff)
             except Exception as e:
