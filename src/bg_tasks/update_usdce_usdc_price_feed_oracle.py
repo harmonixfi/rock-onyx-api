@@ -97,6 +97,7 @@ async def main():
 
         session.add(new_price_feed)
         session.commit()
+        logger.info("Latest price updated successfully %s", average_price)
     except Exception as e:
         logger.error(
             "An error occurred while updating the latest price: %s", e, exc_info=True
