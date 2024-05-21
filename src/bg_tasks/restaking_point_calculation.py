@@ -18,6 +18,7 @@ from sqlmodel import Session, col, select
 from core import constants
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
@@ -222,4 +223,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_file(app="restaking_point_calculation", level=logging.INFO, logger=logger)
     main()
