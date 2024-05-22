@@ -2,11 +2,12 @@ import datetime
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import select
+from sqlmodel import Session, select
 from web3 import Web3
 
 from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
+from models.user_points import UserPoints
 from models.user_portfolio import PositionStatus
 import schemas
 from api.api_v1.deps import SessionDep
@@ -37,6 +38,32 @@ def create_vault_contract(vault: Vault):
         raise HTTPException(status_code=400, detail="Invalid vault strategy")
 
     return contract
+
+
+def get_user_earned_points(
+    session: Session, position: UserPortfolio
+) -> List[schemas.EarnedPoints]:
+    user_points = session.exec(
+        select(UserPoints)
+        .where(UserPoints.vault_id == position.vault_id)
+        .where(UserPoints.wallet_address == position.user_address.lower())
+    ).all()
+
+    earned_points = []
+    for user_point in user_points:
+        earned_points.append(
+            schemas.EarnedPoints(
+                name=user_point.partner_name,
+                point=user_point.points,
+                created_at=(
+                    custom_encoder(user_point.created_at)
+                    if user_point.updated_at is None
+                    else custom_encoder(user_point.updated_at)
+                ),
+            )
+        )
+
+    return earned_points
 
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
@@ -83,6 +110,7 @@ async def get_portfolio_info(
             weekly_apy=vault.weekly_apy,
             slug=vault.slug,
             initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
+            points=get_user_earned_points(session, pos),
         )
 
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
@@ -104,7 +132,9 @@ async def get_portfolio_info(
 
         shares = shares / 10**6
         price_per_share = price_per_share / 10**6
-        position.total_balance = shares * price_per_share + pos.pending_withdrawal
+
+        pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
+        position.total_balance = shares * price_per_share + pending_withdrawal
         position.pnl = position.total_balance - position.init_deposit
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
