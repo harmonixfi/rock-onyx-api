@@ -70,7 +70,13 @@ def _extract_delta_neutral_event(entry):
 
 
 def handle_deposit_event(
-    user_portfolio: UserPortfolio, value, from_address, vault: Vault, latest_pps, *args, **kwargs
+    user_portfolio: UserPortfolio,
+    value,
+    from_address,
+    vault: Vault,
+    latest_pps,
+    *args,
+    **kwargs,
 ):
     if user_portfolio is None:
         # Create new user_portfolio for this user address
@@ -215,71 +221,83 @@ def handle_event(vault_address: str, entry, event_name):
     session.commit()
 
 
+EVENT_FILTERS = {
+    "wheel_deposit_event_filter": {
+        "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+        "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
+        "event": "Deposit",
+    },
+    "wheel_init_withdraw_event_filter": {
+        "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+        "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
+        "event": "InitiateWithdraw",
+    },
+    "wheel_complete_withdraw_event_filter": {
+        "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
+        "topics": [settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS],
+        "event": "Withdrawn",
+    },
+    "delta_neutral_deposit_event_filter": {
+        "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
+        "event": "Deposit",
+    },
+    "delta_neutral_init_withdraw_event_filter": {
+        "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
+        "event": "InitiateWithdraw",
+    },
+    "delta_neutral_complete_withdraw_event_filter": {
+        "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
+        "event": "Withdrawn",
+    },
+    "renzo_delta_neutral_deposit_event_filter": {
+        "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
+        "event": "Deposit",
+    },
+    "renzo_delta_neutral_init_withdraw_event_filter": {
+        "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
+        "event": "InitiateWithdraw",
+    },
+    "renzo_delta_neutral_complete_withdraw_event_filter": {
+        "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
+        "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
+        "event": "Withdrawn",
+    },
+}
+
+
 class Web3Listener(WebSocketManager):
     def __init__(self, connection_url):
         super().__init__(connection_url, logger=logger)
 
     async def init_event_filters(self):
-        self.filters = {
-            "wheel_deposit_event_filter": await self.w3.eth.filter(
+        self.filters = {}
+
+        for event_data in EVENT_FILTERS.values():
+            # query Vault with vault_address
+            vault = session.exec(
+                select(Vault)
+                .where(Vault.contract_address == event_data["address"])
+                .where(Vault.is_active == True)
+            ).first()
+
+            if vault is None:
+                logger.info(f"Vault with address {event_data['address']} not found or inactive")
+                continue
+            
+            vault: Vault = vault[0]
+            logger.info(f"Initializing event filter for {event_data['event']}")
+            event_filter = await self.w3.eth.filter(
                 {
-                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                    "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
+                    "address": event_data["address"],
+                    "topics": event_data["topics"],
                 }
-            ),
-            "wheel_init_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                    "topics": [
-                        settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS
-                    ],
-                }
-            ),
-            "wheel_complete_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-                    "topics": [
-                        settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS
-                    ],
-                }
-            ),
-            "delta_neutral_deposit_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
-                }
-            ),
-            "delta_neutral_init_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
-                }
-            ),
-            "delta_neutral_complete_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
-                }
-            ),
-            "renzo_delta_neutral_deposit_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
-                }
-            ),
-            "renzo_delta_neutral_init_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
-                }
-            ),
-            "renzo_delta_neutral_complete_withdraw_event_filter": await self.w3.eth.filter(
-                {
-                    "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                    "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
-                }
-            ),
-        }
+            )
+            self.filters[event_data["event"]] = event_filter
 
     async def _process_new_entries(
         self, vault_address: str, event_filter: AsyncFilter, event_name: str
@@ -290,57 +308,13 @@ class Web3Listener(WebSocketManager):
 
     async def handle_events(self):
         try:
-            for event_name, filter_attr, contract_address in [
-                (
-                    "Deposit",
-                    "wheel_deposit_event_filter",
-                    settings.ROCKONYX_STABLECOIN_ADDRESS,
-                ),
-                (
-                    "InitiateWithdraw",
-                    "wheel_init_withdraw_event_filter",
-                    settings.ROCKONYX_STABLECOIN_ADDRESS,
-                ),
-                (
-                    "Withdrawn",
-                    "wheel_complete_withdraw_event_filter",
-                    settings.ROCKONYX_STABLECOIN_ADDRESS,
-                ),
-                (
-                    "Deposit",
-                    "delta_neutral_deposit_event_filter",
-                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-                (
-                    "InitiateWithdraw",
-                    "delta_neutral_init_withdraw_event_filter",
-                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-                (
-                    "Withdrawn",
-                    "delta_neutral_complete_withdraw_event_filter",
-                    settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-                (
-                    "Deposit",
-                    "renzo_delta_neutral_deposit_event_filter",
-                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-                (
-                    "InitiateWithdraw",
-                    "renzo_delta_neutral_init_withdraw_event_filter",
-                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-                (
-                    "Withdrawn",
-                    "renzo_delta_neutral_complete_withdraw_event_filter",
-                    settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-                ),
-            ]:
+            for filter_attr in self.filters.keys():
+                event_data = EVENT_FILTERS[filter_attr]
+
                 await self._process_new_entries(
-                    contract_address,
+                    event_data["address"],
                     self.filters[filter_attr],
-                    event_name,
+                    event_data["event"],
                 )
         except Exception as e:
             if "filter not found" in str(e):
