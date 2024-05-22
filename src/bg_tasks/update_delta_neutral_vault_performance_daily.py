@@ -240,7 +240,9 @@ def main():
     try:
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
-            select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+            select(Vault)
+            .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+            .where(Vault.is_active == True)
         ).all()
 
         for vault in vaults:

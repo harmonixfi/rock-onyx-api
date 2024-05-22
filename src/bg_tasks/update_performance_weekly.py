@@ -7,9 +7,13 @@ import pendulum
 import seqlog
 from sqlmodel import Session, select
 from web3 import Web3
+from core import constants
 
-from bg_tasks.utils import (calculate_pps_statistics, calculate_roi,
-                            get_before_price_per_shares)
+from bg_tasks.utils import (
+    calculate_pps_statistics,
+    calculate_roi,
+    get_before_price_per_shares,
+)
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -240,7 +244,7 @@ def main():
     try:
         # Get the vault from the Vault table with name = "Stablecoin Vault"
         vault = session.exec(
-            select(Vault).where(Vault.name == "Options Wheel Vault")
+            select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
         ).first()
 
         new_performance_rec = calculate_performance(vault.id)
@@ -258,7 +262,9 @@ def main():
         session.commit()
     except Exception as e:
         logger.error(
-            "An error occurred while updating the performance metrics: %s", e, exc_info=True
+            "An error occurred while updating the performance metrics: %s",
+            e,
+            exc_info=True,
         )
 
 

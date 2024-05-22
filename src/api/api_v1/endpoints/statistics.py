@@ -68,7 +68,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
 
 @router.get("/", response_model=schemas.Dashboard)
 async def get_dashboard_statistics(session: SessionDep):
-    statement = select(Vault).where(Vault.strategy_name != None)
+    statement = select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
     vaults = session.exec(statement).all()
     data = []
     tvl_in_all_vaults = 0

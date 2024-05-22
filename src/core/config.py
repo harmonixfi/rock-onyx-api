@@ -43,19 +43,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     ETHER_MAINNET_INFURA_URL: str | None = None
     ETHER_MAINNET_INFURA_WEBSOCKER_URL: str | None = None
-    ARBITRUM_MAINNET_INFURA_URL: str = (
-        "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
-    )
-    ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
-    )
-    SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
-    )
-
-    SEPOLIA_TESTNET_INFURA_URL: str = (
-        "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
-    )
+    ARBITRUM_MAINNET_INFURA_URL: str
+    ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str
+    SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str
+    SEPOLIA_TESTNET_INFURA_URL: str
 
     WSTETH_ADDRESS: str = "0x5979D7b546E38E414F7E9822514be443A4800529"
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"

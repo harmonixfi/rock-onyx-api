@@ -74,7 +74,7 @@ async def get_all_vaults(
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
 ):
-    statement = select(Vault)
+    statement = select(Vault).where(Vault.is_active == True)
     if category or network_chain:
         conditions = []
         if category:

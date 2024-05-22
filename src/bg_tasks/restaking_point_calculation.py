@@ -201,7 +201,7 @@ def calculate_point_distributions(vault: Vault):
 def main():
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
-        select(Vault).where(Vault.category == VaultCategory.points)
+        select(Vault).where(Vault.category == VaultCategory.points).where(Vault.is_active == True)
     ).all()
 
     for vault in vaults:
