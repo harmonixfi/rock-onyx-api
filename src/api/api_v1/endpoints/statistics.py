@@ -3,7 +3,6 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
-from bg_tasks.utils import calculate_pps_statistics
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
@@ -28,6 +27,11 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         .order_by(VaultPerformance.datetime.desc())
     )
     performances = session.exec(statement).first()
+    if performances is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The performances data not found in the database.",
+        )
 
     statement = select(UserPortfolio).where(UserPortfolio.vault_id == vault_id)
     portfolios = session.exec(statement).all()
@@ -41,7 +45,11 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
     statistic = schemas.Statistics(
         name=vault.name,
         price_per_share=last_price_per_share,
-        apy_1y=performances.apy_ytd if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS else performances.apy_1m,
+        apy_1y=(
+            performances.apy_ytd
+            if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS
+            else performances.apy_1m
+        ),
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
         unique_depositors=len(portfolios),
@@ -60,7 +68,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
 
 @router.get("/", response_model=schemas.Dashboard)
 async def get_dashboard_statistics(session: SessionDep):
-    statement = select(Vault)
+    statement = select(Vault).where(Vault.strategy_name != None)
     vaults = session.exec(statement).all()
     data = []
     tvl_in_all_vaults = 0
@@ -78,12 +86,17 @@ async def get_dashboard_statistics(session: SessionDep):
             .where(PricePerShareHistory.vault_id == vault.id)
             .order_by(PricePerShareHistory.datetime.desc())
         ).first()
-        last_price_per_share = pps_history.price_per_share
+
+        last_price_per_share = pps_history.price_per_share if pps_history else 0
 
         statistic = schemas.Vault_Dashboard(
             name=vault.name,
             price_per_share=last_price_per_share,
-            apy_1y=performances.apy_ytd if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS else performances.apy_1m,
+            apy_1y=(
+                performances.apy_ytd
+                if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS
+                else performances.apy_1m
+            ),
             risk_factor=performances.risk_factor,
             total_value_locked=performances.total_locked_value,
             vault_address=vault.contract_address,

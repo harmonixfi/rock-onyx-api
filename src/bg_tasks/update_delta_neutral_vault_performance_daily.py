@@ -1,15 +1,20 @@
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pendulum
 import seqlog
 from sqlmodel import Session, select
 from web3 import Web3
+from web3.contract import Contract
 
-from bg_tasks.utils import (calculate_pps_statistics, calculate_roi,
-                            get_before_price_per_shares)
+from bg_tasks.utils import (
+    calculate_pps_statistics,
+    calculate_roi,
+    get_before_price_per_shares,
+)
+from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -27,26 +32,8 @@ if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
 logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
 logger.setLevel(logging.INFO)
 
-# Connect to the Ethereum network
-if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
-else:
-    w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
-
-token_abi = read_abi("ERC20")
-rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
-rockOnyxUSDTVaultContract = w3.eth.contract(
-    address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-    abi=rockonyx_delta_neutral_vault_abi,
-)
-
 session = Session(engine)
-
-
-def balance_of(wallet_address, token_address):
-    token_contract = w3.eth.contract(address=token_address, abi=token_abi)
-    token_balance = token_contract.functions.balanceOf(wallet_address).call()
-    return token_balance
+token_abi = read_abi("ERC20")
 
 
 def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
@@ -87,24 +74,18 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     session.commit()
 
 
-def get_current_pps():
-    pps = rockOnyxUSDTVaultContract.functions.pricePerShare().call()
+def get_current_pps(vault_contract: Contract):
+    pps = vault_contract.functions.pricePerShare().call()
     return pps / 1e6
 
 
-def get_current_round():
-    current_round = rockOnyxUSDTVaultContract.functions.getCurrentRound().call()
-    return current_round
-
-
-def get_current_tvl():
-    tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+def get_current_tvl(vault_contract: Contract):
+    tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / 1e6
 
 
 def get_fee_info():
-    # fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
     fee_structure = [0, 0, 10, 1]
     fee_info = FeeInfo(
         deposit_fee=fee_structure[0],
@@ -116,8 +97,8 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state():
-    state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
+def get_vault_state(vault_contract: Contract):
+    state = vault_contract.functions.getVaultState().call(
         {"from": settings.OWNER_WALLET_ADDRESS}
     )
     vault_state = VaultState(
@@ -172,20 +153,20 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 
 # Step 4: Calculate Performance Metrics
-def calculate_performance(vault_id: uuid.UUID):
+def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
-    today = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 
     # price_per_share_df = get_price_per_share_history(vault_id)
 
-    current_price_per_share = get_current_pps()
-    total_balance = get_current_tvl()
+    current_price_per_share = get_current_pps(vault_contract)
+    total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
-    vault_state = get_vault_state()
+    vault_state = get_vault_state(vault_contract)
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -243,30 +224,44 @@ def calculate_performance(vault_id: uuid.UUID):
     return performance
 
 
+def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
+    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+    vault_contract = w3.eth.contract(
+        address=vault.contract_address,
+        abi=rockonyx_delta_neutral_vault_abi,
+    )
+    return vault_contract, w3
+
+
 # Main Execution
 def main():
     try:
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
-        vault = session.exec(
-            select(Vault).where(Vault.name == "Delta Neutral Vault")
-        ).first()
+        vaults = session.exec(
+            select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+        ).all()
 
-        new_performance_rec = calculate_performance(vault.id)
-        # Add the new performance record to the session and commit
-        session.add(new_performance_rec)
+        for vault in vaults:
+            vault_contract, _ = get_vault_contract(vault)
 
-        # Update the vault with the new information
-        vault.ytd_apy = new_performance_rec.apy_ytd
-        vault.monthly_apy = new_performance_rec.apy_1m
-        vault.weekly_apy = new_performance_rec.apy_1w
-        # vault.current_round = get_current_round()
-        vault.current_round = None  # TODO: Remove this line once the contract is updated
-        vault.next_close_round_date = None
+            new_performance_rec = calculate_performance(vault.id, vault_contract)
+            # Add the new performance record to the session and commit
+            session.add(new_performance_rec)
 
-        session.commit()
+            # Update the vault with the new information
+            vault.ytd_apy = new_performance_rec.apy_ytd
+            vault.monthly_apy = new_performance_rec.apy_1m
+            vault.weekly_apy = new_performance_rec.apy_1w
+            vault.next_close_round_date = None
+
+            session.commit()
     except Exception as e:
         logger.error(
-            "An error occurred while updating delta neutral performance: %s", e, exc_info=True
+            "An error occurred while updating delta neutral performance: %s",
+            e,
+            exc_info=True,
         )
 
 

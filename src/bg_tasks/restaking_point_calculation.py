@@ -34,9 +34,6 @@ GET_POINTS_SERVICE = {
 }
 
 
-if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-    seqlog.configure_from_file("./config/seqlog.yml")
-
 # # Initialize logger
 logger = logging.getLogger("restaking_point_calculation")
 logger.setLevel(logging.INFO)
@@ -224,4 +221,8 @@ def main():
 
 if __name__ == "__main__":
     setup_logging_to_file(app="restaking_point_calculation", level=logging.INFO, logger=logger)
+    
+    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+        seqlog.configure_from_file("./config/seqlog.yml")
+
     main()

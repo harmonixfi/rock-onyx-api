@@ -12,9 +12,10 @@ from web3 import Web3
 from web3._utils.filters import AsyncFilter
 from websockets import ConnectionClosedError, ConnectionClosedOK
 
+from core import constants
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models import (
     PositionStatus,
     PricePerShareHistory,
@@ -25,9 +26,6 @@ from models import (
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
-if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-    print("initializing seqlog")
-    seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
 logger = logging.getLogger(__name__)
@@ -72,7 +70,7 @@ def _extract_delta_neutral_event(entry):
 
 
 def handle_deposit_event(
-    user_portfolio: UserPortfolio, value, from_address, vault: Vault, latest_pps
+    user_portfolio: UserPortfolio, value, from_address, vault: Vault, latest_pps, *args, **kwargs
 ):
     if user_portfolio is None:
         # Create new user_portfolio for this user address
@@ -104,7 +102,7 @@ def handle_deposit_event(
 
 
 def handle_initiate_withdraw_event(
-    user_portfolio: UserPortfolio, value, from_address, *args, **kwargs
+    user_portfolio: UserPortfolio, value, from_address, shares, *args, **kwargs
 ):
     if user_portfolio is not None:
         user_portfolio = user_portfolio[0]
@@ -113,6 +111,7 @@ def handle_initiate_withdraw_event(
         else:
             user_portfolio.pending_withdrawal += value
 
+        user_portfolio.init_deposit -= value
         user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
         session.add(user_portfolio)
         logger.info(f"User with address {from_address} updated in user_portfolio table")
@@ -185,13 +184,10 @@ def handle_event(vault_address: str, entry, event_name):
         latest_pps = 1
 
     # Extract the value, shares and from_address from the event
-    if vault_address == settings.ROCKONYX_STABLECOIN_ADDRESS:
-        value, _, from_address = _extract_stablecoin_event(entry)
-    elif vault_address in {
-        settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-        settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-    }:
-        value, _, from_address = _extract_delta_neutral_event(entry)
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+        value, shares, from_address = _extract_stablecoin_event(entry)
+    elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+        value, shares, from_address = _extract_delta_neutral_event(entry)
     else:
         raise ValueError("Invalid vault address")
 
@@ -208,7 +204,12 @@ def handle_event(vault_address: str, entry, event_name):
     # Call the appropriate handler based on the event name
     handler = event_handlers[event_name]
     user_portfolio = handler(
-        user_portfolio, value, from_address, vault=vault, latest_pps=latest_pps
+        user_portfolio,
+        value,
+        from_address,
+        vault=vault,
+        shares=shares,
+        latest_pps=latest_pps,
     )
 
     session.commit()
@@ -381,11 +382,11 @@ class Web3Listener(WebSocketManager):
                     # Handle the event
                     await self.handle_events()
             except (ConnectionClosedError, ConnectionClosedOK) as e:
-                self.logger.error("Websocket connection close")
-                self.logger.error(e)
+                self.logger.error("Websocket connection close", exc_info=True)
                 self.logger.error(traceback.format_exc())
-                await self.reconnect()
-                await asyncio.sleep(10)
+                # await self.reconnect()
+                # await asyncio.sleep(10)
+                raise e
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
@@ -404,8 +405,12 @@ class Web3Listener(WebSocketManager):
 
 
 if __name__ == "__main__":
-    # setup_logging_to_console(level=logging.INFO, logger=logger)
+    setup_logging_to_console(level=logging.INFO, logger=logger)
     setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+
+    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+        print("initializing seqlog")
+        seqlog.configure_from_file("./config/seqlog.yml")
 
     connection_url = (
         settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL

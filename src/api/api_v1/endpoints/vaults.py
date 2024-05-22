@@ -1,13 +1,16 @@
+import json
 from typing import List
 
-from fastapi import APIRouter, HTTPException
 import pandas as pd
-from sqlmodel import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session, and_, select
 
-from models.vault_performance import VaultPerformance
 import schemas
 from api.api_v1.deps import SessionDep
-from models import Vault
+from core import constants
+from models import PointDistributionHistory, Vault
+from models.vault_performance import VaultPerformance
+from models.vaults import NetworkChain, VaultCategory
 
 router = APIRouter()
 
@@ -23,13 +26,69 @@ def _update_vault_apy(vault: Vault) -> schemas.Vault:
     return schema_vault
 
 
+def get_vault_earned_point_by_partner(
+    session: Session, vault: Vault, partner_name: str
+) -> PointDistributionHistory:
+    """
+    Get the latest PointDistributionHistory record for the given vault_id
+    """
+    statement = (
+        select(PointDistributionHistory)
+        .where(
+            PointDistributionHistory.vault_id == vault.id,
+            PointDistributionHistory.partner_name == partner_name,
+        )
+        .order_by(PointDistributionHistory.created_at.desc())
+    )
+    point_dist_hist = session.exec(statement).first()
+    if point_dist_hist is None:
+        return PointDistributionHistory(
+            vault_id=vault.id, partner_name=partner_name, point=0.0
+        )
+    return point_dist_hist
+
+
+def get_earned_points(
+    session: Session, vault: Vault
+) -> List[schemas.VaultEarnedPoints]:
+    partners = json.loads(vault.routes) + [constants.EIGENLAYER]
+
+    earned_points = []
+    for partner in partners:
+        point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
+        if point_dist_hist is not None:
+            earned_points.append(
+                schemas.VaultEarnedPoints(
+                    name=partner,
+                    point=point_dist_hist.point,
+                    created_at=point_dist_hist.created_at,
+                )
+            )
+
+    return earned_points
+
+
 @router.get("/", response_model=List[schemas.Vault])
-async def get_all_vaults(session: SessionDep):
+async def get_all_vaults(
+    session: SessionDep,
+    category: VaultCategory = Query(None),
+    network_chain: NetworkChain = Query(None),
+):
     statement = select(Vault)
+    if category or network_chain:
+        conditions = []
+        if category:
+            conditions.append(Vault.category == category)
+        if network_chain:
+            conditions.append(Vault.network_chain == network_chain)
+        statement = statement.where(and_(*conditions))
+
     vaults = session.exec(statement).all()
     data = []
     for vault in vaults:
         schema_vault = _update_vault_apy(vault)
+        if vault.category == VaultCategory.points:
+            schema_vault.points = get_earned_points(session, vault)
         data.append(schema_vault)
     return data
 
@@ -45,6 +104,8 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
         )
 
     schema_vault = _update_vault_apy(vault)
+    if vault.category == VaultCategory.points:
+        schema_vault.points = get_earned_points(session, vault)
     return schema_vault
 
 
@@ -73,9 +134,9 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
-    if vault.slug == "delta-neutral-vault":
+    if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_1m"]
-    elif vault.slug == "options-wheel-vault":
+    elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 
     # Convert the date column to string format

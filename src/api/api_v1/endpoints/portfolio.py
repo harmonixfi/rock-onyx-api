@@ -13,40 +13,37 @@ from api.api_v1.deps import SessionDep
 from models import Vault, UserPortfolio
 from schemas import Position
 from core.config import settings
+from core import constants
 from utils.json_encoder import custom_encoder
 
 router = APIRouter()
 
-if settings.ENVIRONMENT_NAME == "Production":
-    w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
-else:
-    w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
-
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
-wheel_options_contract = w3.eth.contract(
-    address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
-)
-
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
-delta_neutral_contract = w3.eth.contract(
-    address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-    abi=rockonyx_delta_neutral_vault_abi,
-)
 
-rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxRestakingDeltaNeutralVault")
-restaking_delta_neutral_contract = w3.eth.contract(
-    address=settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-    abi=rockonyx_delta_neutral_vault_abi,
-)
+
+def create_vault_contract(vault: Vault):
+    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+        contract = w3.eth.contract(
+            address=vault.contract_address, abi=rockonyx_delta_neutral_vault_abi
+        )
+    elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+        contract = w3.eth.contract(
+            address=vault.contract_address, abi=rockonyx_stablecoin_vault_abi
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid vault strategy")
+
+    return contract
 
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(
     session: SessionDep,
     user_address: str,
-    vault_id: str = Query(
-        None, description="Vault Id"
-    ),
+    vault_id: str = Query(None, description="Vault Id"),
 ):
     statement = (
         select(UserPortfolio)
@@ -55,7 +52,7 @@ async def get_portfolio_info(
     )
     if vault_id:
         statement.where(UserPortfolio.vault_id == vault_id)
-    
+
     user_positions = session.exec(statement).all()
 
     if user_positions is None or len(user_positions) == 0:
@@ -66,6 +63,8 @@ async def get_portfolio_info(
     total_balance = 0.0
     for pos in user_positions:
         vault = session.exec(select(Vault).where(Vault.id == pos.vault_id)).one()
+
+        vault_contract = create_vault_contract(vault)
 
         position = Position(
             id=pos.id,
@@ -86,14 +85,9 @@ async def get_portfolio_info(
             initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
         )
 
-        if vault.contract_address == settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS:
-            price_per_share = delta_neutral_contract.functions.pricePerShare().call()
-            shares = delta_neutral_contract.functions.balanceOf(
-                Web3.to_checksum_address(user_address)
-            ).call()
-        elif vault.contract_address == settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS:
-            price_per_share = restaking_delta_neutral_contract.functions.pricePerShare().call()
-            shares = restaking_delta_neutral_contract.functions.balanceOf(
+        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            price_per_share = vault_contract.functions.pricePerShare().call()
+            shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
         else:
@@ -103,14 +97,14 @@ async def get_portfolio_info(
                 + datetime.timedelta(days=(4 - datetime.datetime.now().weekday()) % 7)
             ).replace(hour=8, minute=0, second=0)
 
-            price_per_share = wheel_options_contract.functions.pricePerShare().call()
-            shares = wheel_options_contract.functions.balanceOf(
+            price_per_share = vault_contract.functions.pricePerShare().call()
+            shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
 
         shares = shares / 10**6
         price_per_share = price_per_share / 10**6
-        position.total_balance = shares * price_per_share
+        position.total_balance = shares * price_per_share + pos.pending_withdrawal
         position.pnl = position.total_balance - position.init_deposit
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days

@@ -1,6 +1,7 @@
 from datetime import timedelta
 import math
 from unittest.mock import patch
+import uuid
 
 from hexbytes import HexBytes
 import pendulum
@@ -9,8 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core.db import engine
+from models.point_distribution_history import PointDistributionHistory
 from models.pps_history import PricePerShareHistory
+from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
+from models.vault_performance import VaultPerformance
 from models.vaults import Vault
 from web3_listener import handle_event
 
@@ -45,9 +49,49 @@ def event_data():
     }
 
 
+# create fixture run before every test
 @pytest.fixture(autouse=True)
-def clean_user_portfolio(db_session: Session):
+def seed_data(db_session: Session):
+    db_session.query(UserPointAudit).delete()
+    db_session.query(UserPoints).delete()
+    db_session.query(PointDistributionHistory).delete()
+    db_session.query(VaultPerformance).delete()
     db_session.query(UserPortfolio).delete()
+    db_session.commit()
+    db_session.query(PricePerShareHistory).delete()
+    db_session.commit()
+    db_session.query(Vault).delete()
+    db_session.commit()
+
+    vault = Vault(
+        contract_address="0x18994527E6FfE7e91F1873eCA53e900CE0D0f276",
+        category="real_yield",
+        strategy_name="options_wheel_strategy",
+        network_chain="arbitrum_one",
+        name="Options Wheel Strategy",
+        id=uuid.uuid4(),
+    )
+    db_session.add(vault)
+
+    vault = Vault(
+        contract_address="0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5",
+        category="real_yield",
+        strategy_name="delta_neutral_strategy",
+        network_chain="arbitrum_one",
+        name="Delta Neutral Strategy",
+        id=uuid.uuid4(),
+    )
+    db_session.add(vault)
+
+    vault = Vault(
+        contract_address="0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F9",
+        category="points",
+        strategy_name="delta_neutral_strategy",
+        network_chain="arbitrum_one",
+        name="Renzo Delta Neutral Strategy",
+        id=uuid.uuid4(),
+    )
+    db_session.add(vault)
     db_session.commit()
 
 
@@ -222,6 +266,7 @@ def test_handle_event_deposit_then_init_withdraw(
     )
     assert user_portfolio is not None
     assert user_portfolio.pending_withdrawal == 200
+    assert user_portfolio.init_deposit == 0
 
     amount = 200_000000
     shares = 200_000000
