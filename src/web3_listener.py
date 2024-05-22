@@ -277,7 +277,8 @@ class Web3Listener(WebSocketManager):
     async def init_event_filters(self):
         self.filters = {}
 
-        for event_data in EVENT_FILTERS.values():
+        for name in EVENT_FILTERS.keys():
+            event_data = EVENT_FILTERS[name]
             # query Vault with vault_address
             vault = session.exec(
                 select(Vault)
@@ -297,7 +298,7 @@ class Web3Listener(WebSocketManager):
                     "topics": event_data["topics"],
                 }
             )
-            self.filters[event_data["event"]] = event_filter
+            self.filters[name] = event_filter
 
     async def _process_new_entries(
         self, vault_address: str, event_filter: AsyncFilter, event_name: str
