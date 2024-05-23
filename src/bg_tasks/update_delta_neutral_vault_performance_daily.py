@@ -177,7 +177,9 @@ def calculate_performance(vault_id: uuid.UUID):
     # price_per_share_df = get_price_per_share_history(vault_id)
 
     current_price_per_share = get_current_pps()
+    print('current_price_per_share', current_price_per_share)
     total_balance = get_current_tvl()
+    print('total_blaance',  total_balance)
     fee_info = get_fee_info()
     vault_state = get_vault_state()
     # Calculate Monthly APY
