@@ -222,49 +222,40 @@ def handle_event(vault_address: str, entry, event_name):
 
 
 EVENT_FILTERS = {
-    "wheel_deposit_event_filter": {
+    settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: {
         "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-        "topics": [settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS],
         "event": "Deposit",
     },
-    "wheel_init_withdraw_event_filter": {
+    "settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS": {
         "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-        "topics": [settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS],
         "event": "InitiateWithdraw",
     },
-    "wheel_complete_withdraw_event_filter": {
+    settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS: {
         "address": settings.ROCKONYX_STABLECOIN_ADDRESS,
-        "topics": [settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS],
         "event": "Withdrawn",
     },
-    "delta_neutral_deposit_event_filter": {
+    settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: {
         "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
         "event": "Deposit",
     },
-    "delta_neutral_init_withdraw_event_filter": {
+    settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC: {
         "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
         "event": "InitiateWithdraw",
     },
-    "delta_neutral_complete_withdraw_event_filter": {
+    settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "address": settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
         "event": "Withdrawn",
     },
-    "renzo_delta_neutral_deposit_event_filter": {
+    settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: {
         "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC],
         "event": "Deposit",
     },
-    "renzo_delta_neutral_init_withdraw_event_filter": {
+    settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC: {
         "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC],
         "event": "InitiateWithdraw",
     },
-    "renzo_delta_neutral_complete_withdraw_event_filter": {
+    settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "address": settings.ROCKONYX_RENZO_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
-        "topics": [settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC],
         "event": "Withdrawn",
     },
 }
@@ -287,9 +278,11 @@ class Web3Listener(WebSocketManager):
             ).first()
 
             if vault is None:
-                logger.info(f"Vault with address {event_data['address']} not found or inactive")
+                logger.info(
+                    f"Vault with address {event_data['address']} not found or inactive"
+                )
                 continue
-            
+
             vault: Vault = vault[0]
             logger.info(f"Initializing event filter for {event_data['event']}")
             event_filter = await self.w3.eth.filter(
@@ -353,9 +346,14 @@ class Web3Listener(WebSocketManager):
                 )
                 logger.info(f"Subscription response: {subscription_id}")
 
-                async for _ in self.read_messages():
+                async for msg in self.read_messages():
+                    logger.info("Received message: %s", msg)
                     # Handle the event
-                    await self.handle_events()
+                    # await self.handle_events()
+                    res = msg['result']
+                    if res["topics"][0].hex() in EVENT_FILTERS.keys():
+                        event_filter = EVENT_FILTERS[res["topics"][0].hex()]
+                        handle_event(event_filter["address"], res, event_filter["event"])
             except (ConnectionClosedError, ConnectionClosedOK) as e:
                 self.logger.error("Websocket connection close", exc_info=True)
                 self.logger.error(traceback.format_exc())
@@ -368,7 +366,6 @@ class Web3Listener(WebSocketManager):
 
     async def run(self):
         await self.connect()
-        await self.init_event_filters()
 
         try:
             await self.listen_for_events()
