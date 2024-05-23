@@ -73,10 +73,13 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
-    if vault.slug == "delta-neutral-vault":
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
-    elif vault.slug == "options-wheel-vault":
-        pps_history_df["apy"] = pps_history_df["apy_ytd"]
+    # if vault.slug == "delta-neutral-vault":
+    #     pps_history_df["apy"] = pps_history_df["apy_1m"]
+    # elif vault.slug == "options-wheel-vault":
+    #     pps_history_df["apy"] = pps_history_df["apy_ytd"]
+
+    # calculate cummulative return of pps_history_df['price_per_share']
+    pps_history_df["apy"] = (1 + pps_history_df["price_per_share"].pct_change()).cumprod() - 1
 
     # Convert the date column to string format
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
