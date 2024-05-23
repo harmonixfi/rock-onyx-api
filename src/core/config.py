@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     # RESTAKING
     RENZO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/"
     ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
-    KELPDAO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/"
+    KELPDAO_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
 
     # Seq log
     SEQ_SERVER_URL: Optional[str] = None

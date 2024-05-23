@@ -24,13 +24,14 @@ from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
-from services import renzo_service, zircuit_service
+from services import renzo_service, zircuit_service, kelpdao_service
 
 session = Session(engine)
 
 GET_POINTS_SERVICE = {
-    "renzo": renzo_service.get_points,
-    "zircuit": zircuit_service.get_points,
+    constants.RENZO: renzo_service.get_points,
+    constants.ZIRCUIT: zircuit_service.get_points,
+    constants.KELPDAO: kelpdao_service.get_points,
 }
 
 
@@ -96,7 +97,12 @@ def distribute_points_to_users(
                 vault_id=vault_id,
             )
 
-        logger.info("User %s, Share pct = %s, Points: %s", user.user_address, shares_pct, user_points.points)
+        logger.info(
+            "User %s, Share pct = %s, Points: %s",
+            user.user_address,
+            shares_pct,
+            user_points.points,
+        )
         session.add(user_points)
         session.commit()
 
@@ -154,11 +160,18 @@ def calculate_point_distributions(vault: Vault):
     for partner_name in partners:
         # get earned points for the partner
         prev_point = get_previous_point_distribution(vault.id, partner_name)
-        logger.info("Vault %s, partner: %s, Previous point distribution: %s", vault.name, partner_name, prev_point)
+        logger.info(
+            "Vault %s, partner: %s, Previous point distribution: %s",
+            vault.name,
+            partner_name,
+            prev_point,
+        )
 
         total_earned_points = get_earned_points(vault.contract_address, partner_name)
         logger.info(
-            "Total earned points for partner %s: %s", partner_name, total_earned_points.total_points
+            "Total earned points for partner %s: %s",
+            partner_name,
+            total_earned_points.total_points,
         )
 
         # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
@@ -177,14 +190,21 @@ def calculate_point_distributions(vault: Vault):
             prev_eigen_point = get_previous_point_distribution(
                 vault.id, constants.EIGENLAYER
             )
-            logger.info("Vault %s, partner: %s, Previous point distribution: %s", vault.name, constants.EIGENLAYER, prev_point)
+            logger.info(
+                "Vault %s, partner: %s, Previous point distribution: %s",
+                vault.name,
+                constants.EIGENLAYER,
+                prev_point,
+            )
 
             # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
             earned_eigen_points_in_period = (
                 total_earned_points.eigen_layer_points - prev_eigen_point
             )
             logger.info(
-                "Total earned points for partner %s: %s", partner_name, total_earned_points.eigen_layer_points
+                "Total earned points for partner %s: %s",
+                partner_name,
+                total_earned_points.eigen_layer_points,
             )
 
             distribute_points(
@@ -201,7 +221,9 @@ def calculate_point_distributions(vault: Vault):
 def main():
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
-        select(Vault).where(Vault.category == VaultCategory.points).where(Vault.is_active == True)
+        select(Vault)
+        .where(Vault.category == VaultCategory.points)
+        .where(Vault.is_active == True)
     ).all()
 
     for vault in vaults:
@@ -220,8 +242,10 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_logging_to_file(app="restaking_point_calculation", level=logging.INFO, logger=logger)
-    
+    setup_logging_to_file(
+        app="restaking_point_calculation", level=logging.INFO, logger=logger
+    )
+
     if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
         seqlog.configure_from_file("./config/seqlog.yml")
 
