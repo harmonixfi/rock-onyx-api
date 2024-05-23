@@ -19,6 +19,7 @@ class VaultBase(BaseModel):
     current_round: int | None = None
     next_close_round_date: datetime | None = None
     slug: str | None = None
+    strategy_name: str | None = None
 
     points: List[EarnedPoints] = []
 
