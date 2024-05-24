@@ -15,9 +15,6 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
 
     data = response.json()
 
-    if not data["success"]:
-        raise Exception("KelpDao service returned an error")
-
     point_res = data["value"]
     return EarnedRestakingPoints(
         wallet_address=user_address,

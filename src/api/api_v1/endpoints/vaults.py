@@ -48,9 +48,7 @@ def get_vault_earned_point_by_partner(
     return point_dist_hist
 
 
-def get_earned_points(
-    session: Session, vault: Vault
-) -> List[schemas.EarnedPoints]:
+def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
     partners = json.loads(vault.routes) + [constants.EIGENLAYER]
 
     earned_points = []
@@ -62,6 +60,15 @@ def get_earned_points(
                     name=partner,
                     point=point_dist_hist.point,
                     created_at=point_dist_hist.created_at,
+                )
+            )
+        else:
+            # add default value 0
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name=partner,
+                    point=0.0,
+                    created_at=None,
                 )
             )
 

@@ -61,6 +61,14 @@
             "module": "bg_tasks.check_transaction_missing_every_three_days",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "restaking_point_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.restaking_point_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
         }
     ]
 }
