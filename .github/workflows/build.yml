@@ -31,7 +31,7 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             ENVIRONMENT_NAME=Production
           else
-            ENVIRONMENT_NAME=Development
+            ENVIRONMENT_NAME=Testnet
           fi
           docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
           docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
