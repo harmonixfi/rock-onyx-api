@@ -33,5 +33,5 @@ jobs:
           else
             ENVIRONMENT_NAME=Development
           fi
-          docker build . --file reverse-proxy/Dockerfile --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
+          docker build . --file ./reverse-proxy/Dockerfile --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
           docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
