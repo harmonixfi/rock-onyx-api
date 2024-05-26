@@ -30,8 +30,11 @@ jobs:
       - run: |
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             ENVIRONMENT_NAME=Production
+            IMAGE_PREFIX=prod_
           else
             ENVIRONMENT_NAME=Testnet
+            IMAGE_PREFIX=dev_
           fi
-          docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
-          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${{ github.run_number }}
+          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${IMAGE_PREFIX}${{ github.run_number }}
+          docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t $IMAGE_NAME
+          docker push $IMAGE_NAME
