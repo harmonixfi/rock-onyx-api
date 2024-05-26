@@ -13,7 +13,7 @@ app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/o
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000", "https://testnet.rockonyx.xyz", "https://rockonyx.xyz"],
+    allow_origins=["http://localhost:4000", "https://testnet.rockonyx.xyz", "https://rockonyx.xyz", "https://harmonix.fi", "https://www.harmonix.fi"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
