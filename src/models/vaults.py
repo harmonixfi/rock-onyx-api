@@ -37,6 +37,8 @@ class VaultBase(sqlmodel.SQLModel):
     routes: str | None = None
     category: VaultCategory = sqlmodel.Field(default=VaultCategory.real_yield, nullable=True)
     network_chain: NetworkChain = sqlmodel.Field(default=NetworkChain.arbitrum_one, nullable=True)
+    strategy_name: str | None = None
+    is_active: bool | None = None
 
 
 # Database model, database table inferred from class name

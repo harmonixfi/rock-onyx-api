@@ -2,6 +2,7 @@ import uuid
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Dict, Any
+from .earned_point import EarnedPoints
 
 class Position(BaseModel):
     id: int
@@ -22,6 +23,7 @@ class Position(BaseModel):
     slug: str | None = None
     apy: str | None = None
     initiated_withdrawal_at: str | None = None
+    points: List[EarnedPoints] = []
 
 
 class PortfolioBase(BaseModel):
