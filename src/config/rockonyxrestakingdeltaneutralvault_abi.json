@@ -8,12 +8,17 @@
       },
       {
         "internalType": "address",
+        "name": "_weth",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
         "name": "_swapProxy",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_perpDexProxy",
+        "name": "_perpDexAddress",
         "type": "address"
       },
       {
@@ -23,18 +28,28 @@
       },
       {
         "internalType": "address",
-        "name": "_weth",
+        "name": "_perpDexConnector",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_wstEth",
+        "name": "_restakingToken",
         "type": "address"
       },
       {
         "internalType": "uint256",
         "name": "_initialPPS",
         "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_stakingProxies",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint24[]",
+        "name": "_fees",
+        "type": "uint24[]"
       }
     ],
     "stateMutability": "nonpayable",
@@ -133,6 +148,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "proxy",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "uint256",
         "name": "performanceFee",
@@ -197,18 +231,6 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "address",
-        "name": "connector",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      },
-      {
-        "indexed": false,
         "internalType": "uint256",
         "name": "depositAmount",
         "type": "uint256"
@@ -223,43 +245,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "usdAmount",
+        "name": "ethAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "wstEthEthPrice",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "ethToUsdPrice",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "ethAmountFomUsd",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "wstEthAmountFomEth",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "convertedWEthAmount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "convertedUsdAmount",
+        "name": "usdcAmount",
         "type": "uint256"
       }
     ],
@@ -272,25 +264,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "inputUsdAmount",
+        "name": "usdcAmount",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "ethPrice",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "wethAmount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "wstEthAmount",
+        "name": "ethAmount",
         "type": "uint256"
       }
     ],
@@ -436,6 +416,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "proxy",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "DEFAULT_ADMIN_ROLE",
     "outputs": [
@@ -498,24 +497,6 @@
     "name": "acquireWithdrawalFunds",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "allocatedRatio",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "ethStakeLendRatio",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "perpDexRatio",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -584,8 +565,27 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "gasLimit",
+        "type": "uint32"
+      }
+    ],
     "name": "depositToVendor",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "gasLimit",
+        "type": "uint32"
+      }
+    ],
+    "name": "depositToVendorL2",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -763,28 +763,6 @@
         "components": [
           {
             "internalType": "uint256",
-            "name": "ethStakeLendRatio",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "perpDexRatio",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint8",
-            "name": "decimals",
-            "type": "uint8"
-          }
-        ],
-        "internalType": "struct DeltaNeutralAllocateRatio",
-        "name": "",
-        "type": "tuple"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint256",
             "name": "unAllocatedBalance",
             "type": "uint256"
           },
@@ -794,7 +772,7 @@
             "type": "uint256"
           }
         ],
-        "internalType": "struct EthStakeLendState",
+        "internalType": "struct EthRestakingState",
         "name": "",
         "type": "tuple"
       },
@@ -821,7 +799,7 @@
   },
   {
     "inputs": [],
-    "name": "getEthStakeLendState",
+    "name": "getEthStakingState",
     "outputs": [
       {
         "components": [
@@ -836,7 +814,7 @@
             "type": "uint256"
           }
         ],
-        "internalType": "struct EthStakeLendState",
+        "internalType": "struct EthRestakingState",
         "name": "",
         "type": "tuple"
       }
@@ -846,31 +824,8 @@
   },
   {
     "inputs": [],
-    "name": "getEthStakingUnAllocatedBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "getFeeInfo",
     "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "depositFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "exitFee",
-        "type": "uint256"
-      },
       {
         "internalType": "uint256",
         "name": "performanceFee",
@@ -1219,28 +1174,6 @@
         "components": [
           {
             "internalType": "uint256",
-            "name": "ethStakeLendRatio",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "perpDexRatio",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint8",
-            "name": "decimals",
-            "type": "uint8"
-          }
-        ],
-        "internalType": "struct DeltaNeutralAllocateRatio",
-        "name": "_allocateRatio",
-        "type": "tuple"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint256",
             "name": "unAllocatedBalance",
             "type": "uint256"
           },
@@ -1250,8 +1183,8 @@
             "type": "uint256"
           }
         ],
-        "internalType": "struct EthStakeLendState",
-        "name": "_ethStakeLendState",
+        "internalType": "struct EthRestakingState",
+        "name": "_ethRestakingState",
         "type": "tuple"
       },
       {
@@ -1442,8 +1375,27 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "withdrawPerformanceFee",
+    "inputs": [
+      {
+        "internalType": "uint24[]",
+        "name": "_fees",
+        "type": "uint24[]"
+      }
+    ],
+    "name": "updateFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_renzoWithdrawRestakingPoolAddress",
+        "type": "address"
+      }
+    ],
+    "name": "updateRenzoWithdrawRestaking",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

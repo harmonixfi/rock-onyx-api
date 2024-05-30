@@ -24,5 +24,5 @@ class UserPortfolio(SQLModel, table=True):
     total_shares: float | None = None
     status: PositionStatus = Field(default=PositionStatus.ACTIVE)
     trade_start_date: datetime = Field(default=datetime.now(tz=timezone.utc))
-    trade_end_date: datetime = Field(default=datetime.now(tz=timezone.utc))
+    trade_end_date: datetime | None = None
     initiated_withdrawal_at: datetime = Field(default=None, nullable=True)

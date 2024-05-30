@@ -1,6 +1,10 @@
+from typing import List
 import uuid
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+
+from .earned_point import EarnedPoints
+
 
 class VaultBase(BaseModel):
     id: uuid.UUID
@@ -15,6 +19,9 @@ class VaultBase(BaseModel):
     current_round: int | None = None
     next_close_round_date: datetime | None = None
     slug: str | None = None
+    strategy_name: str | None = None
+
+    points: List[EarnedPoints] = []
 
 
 # Properties shared by models stored in DB

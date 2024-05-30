@@ -50,4 +50,8 @@ RUN chmod +x /usr/local/bin/supercronic.sh
 
 COPY ./src /app
 ENV PYTHONPATH=/app
+
+ARG SEQ_SERVER_API_KEY
+RUN sed -i "s/{{SEQ_SERVER_API_KEY}}/${SEQ_SERVER_API_KEY}/g" /app/config/seqlog.yml
+
 ENTRYPOINT ["/usr/local/bin/supercronic.sh"]

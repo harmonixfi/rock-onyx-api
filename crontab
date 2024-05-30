@@ -1,3 +1,4 @@
 15 8 * * 5 cd /app && python -m bg_tasks.update_performance_weekly > /app-logs/update_performance_weekly.log
 5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily > /app-logs/update_delta_neutral_vault_performance_daily.log
-# 0 12 * * * cd /app && python -m bg_tasks.update_lido_reward > /app-logs/update_lido_reward.log
+0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle > /app-logs/update_usdce_usdc_price_feed_oracle.log
+0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation > /app-logs/restaking_point_calculation.log

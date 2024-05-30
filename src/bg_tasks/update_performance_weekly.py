@@ -1,19 +1,35 @@
+import logging
 import uuid
 from datetime import datetime, timedelta
 
+import pandas as pd
 import pendulum
+import seqlog
 from sqlmodel import Session, select
 from web3 import Web3
-import pandas as pd
+from core import constants
 
-from bg_tasks.utils import get_before_price_per_shares, calculate_roi
+from bg_tasks.utils import (
+    calculate_pps_statistics,
+    calculate_roi,
+    get_before_price_per_shares,
+)
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
+from schemas.fee_info import FeeInfo
+from schemas.vault_state import VaultState
 from services.market_data import get_price
+
+if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+    seqlog.configure_from_file("./config/seqlog.yml")
+
+# # Initialize logger
+logger = logging.getLogger("options_wheel_update_performance_weekly")
+logger.setLevel(logging.INFO)
 
 # Connect to the Ethereum network
 if settings.ENVIRONMENT_NAME == "Production":
@@ -85,8 +101,36 @@ def get_current_round():
 
 def get_current_tvl():
     tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
-
     return tvl / 1e6
+
+
+def get_fee_info():
+    # fee_structure = rockOnyxUSDTVaultContract.functions.getFeeInfo().call()
+    fee_structure = [0, 0, 10, 1]
+    fee_info = FeeInfo(
+        deposit_fee=fee_structure[0],
+        exit_fee=fee_structure[1],
+        performance_fee=fee_structure[2],
+        management_fee=fee_structure[3],
+    )
+    json_fee_info = fee_info.model_dump_json()
+    return json_fee_info
+
+
+def get_vault_state():
+    state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
+        {"from": settings.OWNER_WALLET_ADDRESS}
+    )
+    vault_state = VaultState(
+        performance_fee=state[0] / 1e6,
+        management_fee=state[1] / 1e6,
+        current_round_fee=state[2] / 1e6,
+        withdrawal_pool=state[3] / 1e6,
+        pending_deposit=state[4] / 1e6,
+        total_share=state[5] / 1e6,
+        last_locked=state[6] / 1e6,
+    )
+    return vault_state
 
 
 def get_next_friday():
@@ -136,7 +180,8 @@ def calculate_performance(vault_id: uuid.UUID):
 
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
-
+    fee_info = get_fee_info()
+    vault_state = get_vault_state()
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -168,6 +213,9 @@ def calculate_performance(vault_id: uuid.UUID):
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
+    all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
+        session, vault_id
+    )
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
@@ -178,6 +226,13 @@ def calculate_performance(vault_id: uuid.UUID):
         apy_1w=apy_1w,
         apy_ytd=apy_ytd,
         vault_id=vault_id,
+        risk_factor=risk_factor,
+        all_time_high_per_share=all_time_high_per_share,
+        total_shares=vault_state.total_share,
+        sortino_ratio=sortino,
+        downside_risk=downside,
+        earned_fee=vault_state.performance_fee + vault_state.management_fee,
+        fee_structure=fee_info,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
@@ -186,24 +241,31 @@ def calculate_performance(vault_id: uuid.UUID):
 
 # Main Execution
 def main():
-    # Get the vault from the Vault table with name = "Stablecoin Vault"
-    vault = session.exec(
-        select(Vault).where(Vault.name == "Options Wheel Vault")
-    ).first()
+    try:
+        # Get the vault from the Vault table with name = "Stablecoin Vault"
+        vault = session.exec(
+            select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
+        ).first()
 
-    new_performance_rec = calculate_performance(vault.id)
-    # Add the new performance record to the session and commit
-    session.add(new_performance_rec)
+        new_performance_rec = calculate_performance(vault.id)
+        # Add the new performance record to the session and commit
+        session.add(new_performance_rec)
 
-    # Update the vault with the new information
-    vault.ytd_apy = new_performance_rec.apy_ytd
-    vault.monthly_apy = new_performance_rec.apy_1m
-    vault.weekly_apy = new_performance_rec.apy_1w
-    # vault.current_round = get_current_round()
-    vault.current_round = 1  # TODO: Remove this line once the contract is updated
-    vault.next_close_round_date = get_next_friday()
+        # Update the vault with the new information
+        vault.ytd_apy = new_performance_rec.apy_ytd
+        vault.monthly_apy = new_performance_rec.apy_1m
+        vault.weekly_apy = new_performance_rec.apy_1w
+        # vault.current_round = get_current_round()
+        vault.current_round = 1  # TODO: Remove this line once the contract is updated
+        vault.next_close_round_date = get_next_friday()
 
-    session.commit()
+        session.commit()
+    except Exception as e:
+        logger.error(
+            "An error occurred while updating the performance metrics: %s",
+            e,
+            exc_info=True,
+        )
 
 
 if __name__ == "__main__":

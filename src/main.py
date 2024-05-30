@@ -1,4 +1,3 @@
-
 from fastapi.exceptions import ValidationException
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -8,12 +7,22 @@ from starlette.middleware.cors import CORSMiddleware
 
 from core.config import settings
 
-app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
+app = FastAPI(
+    title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json"
+)
 
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000", "https://testnet.rockonyx.xyz", "https://rockonyx.xyz"],
+    allow_origins=[
+        "http://localhost:4000",
+        "https://testnet.rockonyx.xyz",
+        "https://rockonyx.xyz",
+        "https://www.rockonyx.xyz",
+        "https://testnet.harmonix.fi",
+        "https://harmonix.fi",
+        "https://www.harmonix.fi",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,8 +37,8 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
             "error": "validation",
             "validation": {
                 "error_code": exc.error_code,
-                "error_message": exc.error_message
-            }
+                "error_message": exc.error_message,
+            },
         },
     )
 
@@ -38,18 +47,11 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
 async def exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={
-            "error": str(exc)
-        },
+        content={"error": str(exc)},
     )
 
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
 
 
 if __name__ == "__main__":

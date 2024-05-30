@@ -42,26 +42,22 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     ETHER_MAINNET_INFURA_URL: str | None = None
-    ARBITRUM_MAINNET_INFURA_URL: str = (
-        "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
-    )
-    ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
-    )
-    SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str = (
-        "wss://restless-falling-season.arbitrum-mainnet.quiknode.pro/738a8e5fbc70d4ccbcb1d7bb9ff6c98da481e523/"
-    )
+    ETHER_MAINNET_INFURA_WEBSOCKER_URL: str | None = None
+    ARBITRUM_MAINNET_INFURA_URL: str
+    ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str
+    SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str
+    SEPOLIA_TESTNET_INFURA_URL: str
 
-    SEPOLIA_TESTNET_INFURA_URL: str = (
-        "https://arbitrum-mainnet.infura.io/v3/85cde589ce754dafa0a57001c326104d"
-    )
-
-    WALLET_ADDRESS: str
     WSTETH_ADDRESS: str = "0x5979D7b546E38E414F7E9822514be443A4800529"
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
-    ROCKONYX_STABLECOIN_ADDRESS: str
-    ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str
+    ROCKONYX_STABLECOIN_ADDRESS: str = ""
+    ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
+    ROCKONYX_RENZO_ZIRCUIT_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
+    ROCKONYX_RENZO_ARB_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
+    ROCKONYX_KELPDAO_ARB_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
+    ROCKONYX_USDCE_USDC_PRICE_FEED_ADDRESS: str
+    USDCE_USDC_CAMELOT_POOL_ADDRESS: str
 
     STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: str = Web3.solidity_keccak(
         ["string"], ["Deposited(address,uint256,uint256)"]
@@ -83,6 +79,9 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
 
+    OWNER_WALLET_ADDRESS: str
+    OWNER_WALLET_PRIVATEKEY: str
+
     POSTGRES_SERVER: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -95,6 +94,15 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_API_URL: Optional[str] = None
     NEXT_PUBLIC_ROCK_ONYX_USDT_VAULT_ADDRESS: Optional[str] = None
     NEXT_PUBLIC_USDC_ADDRESS: Optional[str] = None
+
+    # RESTAKING
+    RENZO_BASE_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/"
+    ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
+    KELPDAO_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
+
+    # Seq log
+    SEQ_SERVER_URL: Optional[str] = None
+    SEQ_SERVER_API_KEY: Optional[str] = None
 
     ARBISCAN_API_KEY: str
     ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"

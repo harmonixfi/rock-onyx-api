@@ -1,24 +1,20 @@
-import pendulum
-from core.config import settings
-from core.db import engine
-from models import Vault
-from models.pps_history import PricePerShareHistory
-from models.vault_performance import VaultPerformance
-import requests
-from core.config import settings
-import requests
-from sqlmodel import Session
-from sqlalchemy import select
-from models import (
-    PricePerShareHistory,
-    UserPortfolio,
-    Vault,
-    PositionStatus,
-    Transaction,
-)
 import logging
 from datetime import datetime, timedelta, timezone
-from dateutil.relativedelta import relativedelta, FR
+
+import pendulum
+import requests
+import seqlog
+from dateutil.relativedelta import FR, relativedelta
+from sqlmodel import Session, select
+
+from core.config import settings
+from core.db import engine
+from log import setup_logging_to_file
+from models import (PositionStatus, PricePerShareHistory, Transaction,
+                    UserPortfolio, Vault)
+from models.pps_history import PricePerShareHistory
+from models.vault_performance import VaultPerformance
+from models.vaults import NetworkChain
 from utils.calculate_price import calculate_avg_entry_price
 
 logger = logging.getLogger(__name__)
@@ -26,7 +22,7 @@ logger.setLevel(logging.INFO)
 START_BLOCK = 0
 END_BLOCK = 99999999
 OFFSET = 100
-THREE_DAYS_AGO = 12 * 24 * 60 * 60
+THREE_DAYS_AGO = 3 * 24 * 60 * 60
 
 stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
 delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS
@@ -37,7 +33,7 @@ session = Session(engine)
 
 
 def decode_transaction_input(transaction):
-    transaction_amount = int(transaction["input"][10:], 16)
+    transaction_amount = int(transaction["input"][10:74], 16)
     transaction_amount = transaction_amount / 1e6
     return transaction_amount
 
@@ -54,7 +50,7 @@ def get_transactions(vault_address, page):
         "apikey": api_key,
     }
     api_url = (
-        f"{url}{'&'.join(f'{key}={value}' for key, value in query_params.items())}"
+        f"{url}&{'&'.join(f'{key}={value}' for key, value in query_params.items())}"
     )
     response = requests.get(api_url)
     response_json = response.json()
@@ -64,26 +60,25 @@ def get_transactions(vault_address, page):
 
 def check_missing_transactions():
 
-    address = [stablecoin_vault_address, delta_neutral_vault_abi]
+    # query all active vaults
+    vaults = session.exec(
+        select(Vault)
+        .where(Vault.is_active == True)
+        .where(Vault.network_chain == NetworkChain.arbitrum_one)
+    ).all()
+
     timestamp_three_days_ago = float(datetime.now().timestamp()) - THREE_DAYS_AGO
     flag = True
 
-    for vault_address in address:
-
-        vault = session.exec(
-            select(Vault).where(Vault.contract_address == vault_address)
-        ).first()
-        if vault is None:
-            raise ValueError("Vault not found")
-        vault: Vault = vault[0]
-
+    for vault in vaults:
         page = 1
 
         while flag:
-            transactions = get_transactions(vault_address, page)
+            transactions = get_transactions(vault.contract_address, page)
             if transactions == "Max rate limit reached":
                 break
-
+            if not transactions:
+                break
             for transaction in transactions:
                 transaction_timestamp = float(transaction["timeStamp"])
                 if transaction_timestamp > timestamp_three_days_ago:
@@ -121,7 +116,10 @@ def check_missing_transactions():
                         .where(UserPortfolio.status == PositionStatus.ACTIVE)
                     ).first()
 
-                    if transaction["functionName"] == "deposit(uint256 amount)":
+                    if (
+                        transaction["functionName"]
+                        == "deposit(uint256 visrDeposit, address from, address to)"
+                    ):
                         transaction_hash = transaction["hash"]
                         existing_transaction = session.exec(
                             select(Transaction).where(
@@ -178,4 +176,11 @@ def check_missing_transactions():
 
 
 if __name__ == "__main__":
+    setup_logging_to_file(
+        app="check_transaction_missing_every_three_days", level=logging.INFO, logger=logger
+    )
+
+    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
+        seqlog.configure_from_file("./config/seqlog.yml")
+    
     check_missing_transactions()

@@ -5,7 +5,7 @@ from typing import Optional
 
 from web3 import AsyncWeb3, Web3, WebsocketProviderV2
 from web3.providers.websocket.websocket_connection import WebsocketConnection
-from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+from websockets import ConnectionClosedError, ConnectionClosedOK
 
 
 class WebSocketManager:
@@ -23,18 +23,13 @@ class WebSocketManager:
 
     async def disconnect(self):
         if self.websocket:
-            await self.websocket.close()
+            await self.w3.provider.disconnect()
             self.websocket = None
 
     async def reconnect(self):
+        self.logger.info("Reconnecting to websocket provider")
         await self.disconnect()
         await self.connect()
-
-    async def handle_disconnect(self):
-        while True:
-            if self.websocket and self.websocket.closed:
-                await self.reconnect()
-            await asyncio.sleep(1)
 
     async def read_messages(self, read_timeout=0.1, backoff=0.1, on_disconnect=None):
         while True:
@@ -43,16 +38,8 @@ class WebSocketManager:
                     self.websocket.recv(), timeout=read_timeout
                 )
                 yield message
-            except (
-                ConnectionClosedError,
-                ConnectionClosedOK,
-            ) as e:
-                if on_disconnect:
-                    on_disconnect()
-                self.logger.error("Websocket connection close")
-                self.logger.error(e)
-                self.logger.error(traceback.format_exc())
-                await self.reconnect()
+            except (ConnectionClosedError, ConnectionClosedOK) as e:
+                raise e
             except asyncio.TimeoutError:
                 await asyncio.sleep(backoff)
             except Exception as e:
