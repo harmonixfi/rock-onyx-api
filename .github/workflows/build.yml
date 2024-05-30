@@ -38,3 +38,36 @@ jobs:
           IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${IMAGE_PREFIX}${{ github.run_number }}
           docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t $IMAGE_NAME
           docker push $IMAGE_NAME
+      
+      - name: "Build and push api image"
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            IMAGE_PREFIX=prod_
+          else
+            IMAGE_PREFIX=dev_
+          fi
+          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/api:${IMAGE_PREFIX}${{ github.run_number }}
+          docker build -f backend.dockerfile -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+
+      - name: "Build and push crontab image"
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            IMAGE_PREFIX=prod_
+          else
+            IMAGE_PREFIX=dev_
+          fi
+          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/cron:${IMAGE_PREFIX}${{ github.run_number }}
+          docker build -f crontab.dockerfile -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+
+      - name: "Build and push web_listener image"
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            IMAGE_PREFIX=prod_
+          else
+            IMAGE_PREFIX=dev_
+          fi
+          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/listener:${IMAGE_PREFIX}${{ github.run_number }}
+          docker build -f listener.dockerfile -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
