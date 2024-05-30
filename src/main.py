@@ -22,6 +22,7 @@ app.add_middleware(
         "https://testnet.harmonix.fi",
         "https://harmonix.fi",
         "https://www.harmonix.fi",
+        "https://app.harmonix.fi",
     ],
     allow_credentials=True,
     allow_methods=["*"],
