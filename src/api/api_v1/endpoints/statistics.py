@@ -11,6 +11,7 @@ import pandas as pd
 from api.api_v1.deps import SessionDep
 from models import Vault
 from core.config import settings
+from core import constants
 
 router = APIRouter()
 
@@ -47,7 +48,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         price_per_share=last_price_per_share,
         apy_1y=(
             performances.apy_ytd
-            if vault.contract_address == settings.ROCKONYX_STABLECOIN_ADDRESS
+            if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
             else performances.apy_1m
         ),
         total_value_locked=performances.total_locked_value,
