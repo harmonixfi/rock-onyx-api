@@ -7,13 +7,11 @@ import pendulum
 import seqlog
 from sqlmodel import Session, select
 from web3 import Web3
-from core import constants
+from web3.contract import Contract
 
-from bg_tasks.utils import (
-    calculate_pps_statistics,
-    calculate_roi,
-    get_before_price_per_shares,
-)
+from bg_tasks.utils import (calculate_pps_statistics, calculate_roi,
+                            get_before_price_per_shares)
+from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -38,12 +36,22 @@ else:
     w3 = Web3(Web3.HTTPProvider(settings.SEPOLIA_TESTNET_INFURA_URL))
 
 token_abi = read_abi("ERC20")
-rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
-rockOnyxUSDTVaultContract = w3.eth.contract(
-    address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
-)
+# rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
+# rockOnyxUSDTVaultContract = w3.eth.contract(
+#     address=settings.ROCKONYX_STABLECOIN_ADDRESS, abi=rockonyx_stablecoin_vault_abi
+# )
 
 session = Session(engine)
+
+def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
+    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxStableCoin")
+    vault_contract = w3.eth.contract(
+        address=vault.contract_address,
+        abi=rockonyx_delta_neutral_vault_abi,
+    )
+    return vault_contract, w3
 
 
 def balance_of(wallet_address, token_address):
@@ -89,18 +97,18 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     session.commit()
 
 
-def get_current_pps():
-    pps = rockOnyxUSDTVaultContract.functions.pricePerShare().call()
+def get_current_pps(vault_contract: Contract):
+    pps = vault_contract.functions.pricePerShare().call()
     return pps / 1e6
 
 
-def get_current_round():
-    current_round = rockOnyxUSDTVaultContract.functions.getCurrentRound().call()
+def get_current_round(vault_contract: Contract):
+    current_round = vault_contract.functions.getCurrentRound().call()
     return current_round
 
 
-def get_current_tvl():
-    tvl = rockOnyxUSDTVaultContract.functions.totalValueLocked().call()
+def get_current_tvl(vault_contract: Contract):
+    tvl = vault_contract.functions.totalValueLocked().call()
     return tvl / 1e6
 
 
@@ -117,8 +125,8 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state(owner_wallet_address: str):
-    state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
+def get_vault_state(vault_contract: Contract, owner_wallet_address: str):
+    state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_wallet_address)}
     )
     vault_state = VaultState(
@@ -168,7 +176,7 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 
 # Step 4: Calculate Performance Metrics
-def calculate_performance(vault_id: uuid.UUID, owner_address: str):
+def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_address: str):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
@@ -178,10 +186,10 @@ def calculate_performance(vault_id: uuid.UUID, owner_address: str):
 
     # price_per_share_df = get_price_per_share_history(vault_id)
 
-    current_price_per_share = get_current_pps()
-    total_balance = get_current_tvl()
+    current_price_per_share = get_current_pps(vault_contract)
+    total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
-    vault_state = get_vault_state(owner_address)
+    vault_state = get_vault_state(vault_contract, owner_address)
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -247,7 +255,9 @@ def main():
             select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
         ).first()
 
-        new_performance_rec = calculate_performance(vault.id, vault.owner_wallet_address)
+        vault_contract, _ = get_vault_contract(vault)
+
+        new_performance_rec = calculate_performance(vault.id, vault_contract, vault.owner_wallet_address)
         # Add the new performance record to the session and commit
         session.add(new_performance_rec)
 
