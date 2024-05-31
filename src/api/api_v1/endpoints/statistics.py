@@ -56,7 +56,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         unique_depositors=len(portfolios),
         fee_structure=json.loads(performances.fee_structure),
         vault_address=vault.contract_address,
-        manager_address=settings.OWNER_WALLET_ADDRESS,
+        manager_address=vault.owner_wallet_address,
         all_time_high_per_share=performances.all_time_high_per_share,
         total_shares=performances.total_shares,
         sortino_ratio=performances.sortino_ratio,

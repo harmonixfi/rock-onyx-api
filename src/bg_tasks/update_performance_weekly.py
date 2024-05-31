@@ -117,9 +117,9 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state():
+def get_vault_state(owner_wallet_address: str):
     state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
-        {"from": settings.OWNER_WALLET_ADDRESS}
+        {"from": owner_wallet_address}
     )
     vault_state = VaultState(
         performance_fee=state[0] / 1e6,
@@ -168,7 +168,7 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 
 # Step 4: Calculate Performance Metrics
-def calculate_performance(vault_id: uuid.UUID):
+def calculate_performance(vault_id: uuid.UUID, owner_address: str):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
@@ -181,7 +181,7 @@ def calculate_performance(vault_id: uuid.UUID):
     current_price_per_share = get_current_pps()
     total_balance = get_current_tvl()
     fee_info = get_fee_info()
-    vault_state = get_vault_state()
+    vault_state = get_vault_state(owner_address)
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -247,7 +247,7 @@ def main():
             select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
         ).first()
 
-        new_performance_rec = calculate_performance(vault.id)
+        new_performance_rec = calculate_performance(vault.id, vault.owner_wallet_address)
         # Add the new performance record to the session and commit
         session.add(new_performance_rec)
 
