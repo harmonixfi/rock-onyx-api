@@ -79,8 +79,10 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
 
-    OWNER_WALLET_ADDRESS: str
-    OWNER_WALLET_PRIVATEKEY: str
+    OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str
+
+    OPERATION_ADMIN_WALLET_ADDRESS: str
+    OPERATION_ADMIN_WALLET_PRIVATE_KEY: str
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str

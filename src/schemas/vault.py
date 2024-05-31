@@ -10,7 +10,7 @@ class VaultBase(BaseModel):
     id: uuid.UUID
     name: str
     apr: float = None
-    apr: float | None = None
+    contract_address: str | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     max_drawdown: float | None = None

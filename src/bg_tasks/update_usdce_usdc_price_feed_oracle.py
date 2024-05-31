@@ -58,8 +58,8 @@ async def update_lastest_price(_price, price_decimals=8):
         w3,
         contract.functions.setLatestPrice,
         [int(_price * price_decimals)],
-        settings.OWNER_WALLET_ADDRESS,
-        settings.OWNER_WALLET_PRIVATEKEY,
+        settings.OPERATION_ADMIN_WALLET_ADDRESS,
+        settings.OPERATION_ADMIN_WALLET_PRIVATE_KEY,
     )
 
 
