@@ -8,6 +8,7 @@ class Position(BaseModel):
     id: int
     vault_id: uuid.UUID
     vault_name: str
+    vault_address: str
     user_address: str
     total_balance: float
     init_deposit: float

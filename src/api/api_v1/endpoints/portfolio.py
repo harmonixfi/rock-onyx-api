@@ -97,6 +97,7 @@ async def get_portfolio_info(
             id=pos.id,
             vault_id=pos.vault_id,
             user_address=pos.user_address,
+            vault_address=vault.contract_address,
             total_balance=pos.total_balance,
             init_deposit=pos.init_deposit,
             entry_price=pos.entry_price,
