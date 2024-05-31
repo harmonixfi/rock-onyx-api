@@ -248,7 +248,7 @@ def main():
         for vault in vaults:
             vault_contract, _ = get_vault_contract(vault)
 
-            new_performance_rec = calculate_performance(vault.id, vault_contract)
+            new_performance_rec = calculate_performance(vault.id, vault_contract, vault.owner_wallet_address)
             # Add the new performance record to the session and commit
             session.add(new_performance_rec)
 
