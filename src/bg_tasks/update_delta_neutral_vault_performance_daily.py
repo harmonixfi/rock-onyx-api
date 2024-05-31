@@ -99,7 +99,7 @@ def get_fee_info():
 
 def get_vault_state(vault_contract: Contract, owner_address: str):
     state = vault_contract.functions.getVaultState().call(
-        {"from": owner_address}
+        {"from": Web3.to_checksum_address(owner_address)}
     )
     vault_state = VaultState(
         performance_fee=state[0] / 1e6,

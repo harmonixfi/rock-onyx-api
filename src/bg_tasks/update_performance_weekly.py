@@ -119,7 +119,7 @@ def get_fee_info():
 
 def get_vault_state(owner_wallet_address: str):
     state = rockOnyxUSDTVaultContract.functions.getVaultState().call(
-        {"from": owner_wallet_address}
+        {"from": Web3.to_checksum_address(owner_wallet_address)}
     )
     vault_state = VaultState(
         performance_fee=state[0] / 1e6,
