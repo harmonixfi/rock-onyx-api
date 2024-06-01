@@ -1,7 +1,8 @@
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
+import click
 import pandas as pd
 import pendulum
 import seqlog
@@ -21,6 +22,7 @@ from core.db import engine
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
+from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.market_data import get_price
@@ -153,7 +155,9 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 
 # Step 4: Calculate Performance Metrics
-def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_address: str):
+def calculate_performance(
+    vault_id: uuid.UUID, vault_contract: Contract, owner_address: str
+):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
@@ -236,19 +240,27 @@ def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
 
 
 # Main Execution
-def main():
+@click.command()
+@click.option("--chain", default="arbitrum_one", help="Blockchain network to use")
+def main(chain: str):
     try:
+        # Parse chain to NetworkChain enum
+        network_chain = NetworkChain[chain.lower()]
+
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
             select(Vault)
             .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
             .where(Vault.is_active == True)
+            .where(Vault.network_chain == network_chain)
         ).all()
 
         for vault in vaults:
             vault_contract, _ = get_vault_contract(vault)
 
-            new_performance_rec = calculate_performance(vault.id, vault_contract, vault.owner_wallet_address)
+            new_performance_rec = calculate_performance(
+                vault.id, vault_contract, vault.owner_wallet_address
+            )
             # Add the new performance record to the session and commit
             session.add(new_performance_rec)
 
