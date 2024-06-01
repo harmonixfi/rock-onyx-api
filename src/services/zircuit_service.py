@@ -27,7 +27,7 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
 
     return EarnedRestakingPoints(
         wallet_address=user_address,
-        total_points=data["total_points"],
+        total_points=data["total_points"] if 'total_points' in data else 0,
         partner_name=constants.ZIRCUIT,
     )
 
