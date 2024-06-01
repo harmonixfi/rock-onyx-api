@@ -105,7 +105,7 @@ async def get_dashboard_statistics(session: SessionDep):
             id=vault.id,
         )
         tvl_in_all_vaults += performances.total_locked_value
-        tvl_composition[vault.slug] = performances.total_locked_value
+        tvl_composition[vault.name] = performances.total_locked_value
         data.append(statistic)
 
     for key in tvl_composition:
