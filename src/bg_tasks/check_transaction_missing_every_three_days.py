@@ -24,8 +24,6 @@ END_BLOCK = 99999999
 OFFSET = 100
 THREE_DAYS_AGO = 3 * 24 * 60 * 60
 
-stablecoin_vault_address = settings.ROCKONYX_STABLECOIN_ADDRESS
-delta_neutral_vault_abi = settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS
 api_key = settings.ARBISCAN_API_KEY
 url = settings.ARBISCAN_GET_TRANSACTIONS_URL
 
@@ -39,7 +37,6 @@ def decode_transaction_input(transaction):
 
 
 def get_transactions(vault_address, page):
-
     query_params = {
         "address": vault_address,
         "startblock": START_BLOCK,
