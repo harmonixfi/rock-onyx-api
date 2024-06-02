@@ -57,7 +57,7 @@ async def update_lastest_price(_price, price_decimals=8):
     await sign_and_send_transaction(
         w3,
         contract.functions.setLatestPrice,
-        [int(_price * price_decimals)],
+        [int(_price * 10**price_decimals)],
         settings.OPERATION_ADMIN_WALLET_ADDRESS,
         settings.OPERATION_ADMIN_WALLET_PRIVATE_KEY,
     )
@@ -83,9 +83,17 @@ async def main():
         ).all()
 
         current_price = await get_current_pool_price()
-        average_price = (sum(
-            item.latest_price for item in price_feed_oracle_histories
-        ) + current_price) / (len(price_feed_oracle_histories) + 1)
+        average_price = (
+            sum(item.latest_price for item in price_feed_oracle_histories)
+            + current_price
+        ) / (len(price_feed_oracle_histories) + 1)
+
+        # check if average price is +/- 5% of the current price
+        if abs(average_price - current_price) / current_price > 0.1:
+            logger.info(
+                "Average price is more than 5 percent different from the current price"
+            )
+            return
 
         await update_lastest_price(average_price)
 
