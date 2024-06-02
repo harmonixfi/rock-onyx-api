@@ -87,6 +87,13 @@ async def main():
             item.latest_price for item in price_feed_oracle_histories
         ) + current_price) / (len(price_feed_oracle_histories) + 1)
 
+        # check if average price is +/- 5% of the current price
+        if abs(average_price - current_price) / current_price > 0.1:
+            logger.info(
+                "Average price is more than 5 percent different from the current price"
+            )
+            return
+
         await update_lastest_price(average_price)
 
         new_price_feed = PriceFeedOracleHistory(
