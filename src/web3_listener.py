@@ -5,6 +5,7 @@ import logging
 import traceback
 from datetime import datetime, timezone
 
+import click
 import seqlog
 from sqlmodel import select
 from sqlmodel import Session
@@ -23,6 +24,7 @@ from models import (
     UserPortfolio,
     Vault,
 )
+from models.vaults import NetworkChain
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
@@ -235,7 +237,7 @@ EVENT_FILTERS = {
     },
     settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "event": "Withdrawn",
-    }
+    },
 }
 
 
@@ -250,12 +252,14 @@ class Web3Listener(WebSocketManager):
         for event in events:
             handle_event(vault_address, event, event_name)
 
-    async def listen_for_events(self):
+    async def listen_for_events(self, network: NetworkChain):
         while True:
             try:
                 # query all active vaults
                 vaults = session.exec(
-                    select(Vault).where(Vault.is_active == True)
+                    select(Vault)
+                    .where(Vault.is_active == True)
+                    .where(Vault.network_chain == network)
                 ).all()
                 for vault in vaults:
                     # subscribe to new block headers
@@ -279,9 +283,7 @@ class Web3Listener(WebSocketManager):
                     res = msg["result"]
                     if res["topics"][0].hex() in EVENT_FILTERS.keys():
                         event_filter = EVENT_FILTERS[res["topics"][0].hex()]
-                        handle_event(
-                            res["address"], res, event_filter["event"]
-                        )
+                        handle_event(res["address"], res, event_filter["event"])
             except (ConnectionClosedError, ConnectionClosedOK) as e:
                 self.logger.error("Websocket connection close", exc_info=True)
                 self.logger.error(traceback.format_exc())
@@ -292,11 +294,11 @@ class Web3Listener(WebSocketManager):
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
 
-    async def run(self):
+    async def run(self, network: NetworkChain):
         await self.connect()
 
         try:
-            await self.listen_for_events()
+            await self.listen_for_events(network)
         except Exception as e:
             logger.error(f"Error: {e}")
             logger.error(traceback.format_exc())
@@ -304,7 +306,7 @@ class Web3Listener(WebSocketManager):
             await self.disconnect()
 
 
-if __name__ == "__main__":
+async def run(network: str):
     setup_logging_to_console(level=logging.INFO, logger=logger)
     setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
 
@@ -312,10 +314,27 @@ if __name__ == "__main__":
         print("initializing seqlog")
         seqlog.configure_from_file("./config/seqlog.yml")
 
-    connection_url = (
-        settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
-        if settings.ENVIRONMENT_NAME == "Production"
-        else settings.SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL
-    )
+    # Parse network to NetworkChain enum
+    network_chain = NetworkChain[network.lower()]
+
+    # Select connection_url based on network_chain
+    if network_chain == NetworkChain.arbitrum_one:
+        connection_url = settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
+    elif network_chain == NetworkChain.ethereum:
+        connection_url = settings.ETHER_MAINNET_INFURA_WEBSOCKER_URL
+
+    else:
+        raise ValueError(f"Unsupported network: {network}")
+
     web3_listener = Web3Listener(connection_url)
-    asyncio.run(web3_listener.run())
+    await web3_listener.run(network)
+
+
+@click.command()
+@click.option("--network", default="arbitrum_one", help="Blockchain network to use")
+def main(network: str):
+    asyncio.run(run(network))
+
+
+if __name__ == "__main__":
+    main()
