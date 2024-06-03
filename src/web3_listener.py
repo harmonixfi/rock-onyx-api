@@ -308,7 +308,7 @@ class Web3Listener(WebSocketManager):
 
 async def run(network: str):
     setup_logging_to_console(level=logging.INFO, logger=logger)
-    setup_logging_to_file(app="web_listener", level=logging.INFO, logger=logger)
+    setup_logging_to_file(app=f"web3_listener_{network}", level=logging.INFO, logger=logger)
 
     if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
         print("initializing seqlog")
