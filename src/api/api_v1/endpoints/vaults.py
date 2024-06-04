@@ -18,11 +18,10 @@ router = APIRouter()
 def _update_vault_apy(vault: Vault) -> schemas.Vault:
     schema_vault = schemas.Vault.model_validate(vault)
 
-    if vault.slug == "delta-neutral-vault":
-        schema_vault.apy = vault.monthly_apy
-    elif vault.slug == "options-wheel-vault":
+    if vault.category == constants.OPTIONS_WHEEL_STRATEGY:
         schema_vault.apy = vault.ytd_apy
-
+    else:
+        schema_vault.apy = vault.monthly_apy
     return schema_vault
 
 

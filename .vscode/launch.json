@@ -52,6 +52,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "web3_listener",
+            "args": ["--network", "ethereum"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
