@@ -18,7 +18,7 @@ router = APIRouter()
 def _update_vault_apy(vault: Vault) -> schemas.Vault:
     schema_vault = schemas.Vault.model_validate(vault)
 
-    if vault.category == constants.OPTIONS_WHEEL_STRATEGY:
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         schema_vault.apy = vault.ytd_apy
     else:
         schema_vault.apy = vault.monthly_apy
