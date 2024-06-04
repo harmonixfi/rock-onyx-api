@@ -2,6 +2,8 @@ import uuid
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
+from models.vaults import NetworkChain
+
 
 class Statistics(BaseModel):
     name: str
@@ -18,6 +20,7 @@ class Statistics(BaseModel):
     sortino_ratio: float
     downside_risk: float
     earned_fee: float
+    vault_network_chain: NetworkChain | None = None
     slug: str
 
 

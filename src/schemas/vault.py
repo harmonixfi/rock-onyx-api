@@ -3,6 +3,8 @@ import uuid
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
+from models.vaults import NetworkChain, VaultCategory
+
 from .earned_point import EarnedPoints
 
 
@@ -19,6 +21,8 @@ class VaultBase(BaseModel):
     current_round: int | None = None
     next_close_round_date: datetime | None = None
     slug: str | None = None
+    category: VaultCategory | None = None
+    network_chain: NetworkChain | None = None
     strategy_name: str | None = None
 
     points: List[EarnedPoints] = []

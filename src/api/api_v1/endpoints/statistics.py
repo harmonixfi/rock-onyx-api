@@ -62,6 +62,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         sortino_ratio=performances.sortino_ratio,
         downside_risk=performances.downside_risk,
         earned_fee=performances.earned_fee,
+        vault_network_chain=vault.network_chain,
         slug=vault.slug,
     )
     return statistic
@@ -69,7 +70,9 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
 
 @router.get("/", response_model=schemas.Dashboard)
 async def get_dashboard_statistics(session: SessionDep):
-    statement = select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    statement = (
+        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    )
     vaults = session.exec(statement).all()
     data = []
     tvl_in_all_vaults = 0
