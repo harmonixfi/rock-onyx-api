@@ -23,6 +23,7 @@ class Position(BaseModel):
     weekly_apy: float | None = None
     slug: str | None = None
     apy: str | None = None
+    vault_network: str | None = None
     initiated_withdrawal_at: str | None = None
     points: List[EarnedPoints] = []
 

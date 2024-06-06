@@ -2,6 +2,7 @@ import json
 from typing import List
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import distinct, func
 from sqlmodel import select
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -34,15 +35,13 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
             detail="The performances data not found in the database.",
         )
 
-    statement = select(UserPortfolio).where(UserPortfolio.vault_id == vault_id)
-    portfolios = session.exec(statement).all()
-
     pps_history = session.exec(
         select(PricePerShareHistory)
         .where(PricePerShareHistory.vault_id == vault_id)
         .order_by(PricePerShareHistory.datetime.desc())
     ).first()
     last_price_per_share = pps_history.price_per_share
+
     statistic = schemas.Statistics(
         name=vault.name,
         price_per_share=last_price_per_share,
@@ -53,7 +52,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         ),
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
-        unique_depositors=len(portfolios),
+        unique_depositors=performances.unique_depositors,
         fee_structure=json.loads(performances.fee_structure),
         vault_address=vault.contract_address,
         manager_address=vault.owner_wallet_address,
@@ -68,7 +67,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
     return statistic
 
 
-@router.get("/", response_model=schemas.Dashboard)
+@router.get("/", response_model=schemas.DashboardStats)
 async def get_dashboard_statistics(session: SessionDep):
     statement = (
         select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
@@ -83,7 +82,7 @@ async def get_dashboard_statistics(session: SessionDep):
             .where(VaultPerformance.vault_id == vault.id)
             .order_by(VaultPerformance.datetime.desc())
         )
-        performances = session.exec(statement).first()
+        performance = session.exec(statement).first()
 
         pps_history = session.exec(
             select(PricePerShareHistory)
@@ -93,22 +92,22 @@ async def get_dashboard_statistics(session: SessionDep):
 
         last_price_per_share = pps_history.price_per_share if pps_history else 0
 
-        statistic = schemas.Vault_Dashboard(
+        statistic = schemas.VaultStats(
             name=vault.name,
             price_per_share=last_price_per_share,
             apy_1y=(
-                performances.apy_ytd
+                performance.apy_ytd
                 if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                else performances.apy_1m
+                else performance.apy_1m
             ),
-            risk_factor=performances.risk_factor,
-            total_value_locked=performances.total_locked_value,
+            risk_factor=performance.risk_factor,
+            total_value_locked=performance.total_locked_value,
             vault_address=vault.contract_address,
             slug=vault.slug,
             id=vault.id,
         )
-        tvl_in_all_vaults += performances.total_locked_value
-        tvl_composition[vault.name] = performances.total_locked_value
+        tvl_in_all_vaults += performance.total_locked_value
+        tvl_composition[vault.name] = performance.total_locked_value
         data.append(statistic)
 
     for key in tvl_composition:
@@ -116,8 +115,13 @@ async def get_dashboard_statistics(session: SessionDep):
             tvl_composition[key] / tvl_in_all_vaults if tvl_in_all_vaults > 0 else 0
         )
 
-    data = schemas.Dashboard(
+    # count all portfolio of vault
+    statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(UserPortfolio)
+    count = session.scalar(statement)
+
+    data = schemas.DashboardStats(
         tvl_in_all_vaults=tvl_in_all_vaults,
+        total_depositors=count,
         tvl_composition=tvl_composition,
         vaults=data,
     )

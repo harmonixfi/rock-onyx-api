@@ -18,6 +18,7 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     sortino_ratio: float | None = None
     downside_risk: float | None = None
     earned_fee: float | None = None
+    unique_depositors: int | None = None
     fee_structure: str | None = None
     
 class VaultPerformance(VaultPerformanceBase, table=True):
