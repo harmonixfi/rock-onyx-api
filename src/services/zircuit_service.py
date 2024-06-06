@@ -16,7 +16,7 @@ headers = {
 
 
 def get_points(user_address: str) -> EarnedRestakingPoints:
-    url = f"{settings.ZIRCUIT_BASE_API_URL}points/{user_address}"
+    url = f"{settings.ZIRCUIT_BASE_API_URL}portfolio/{user_address}"
 
     response = requests.get(url, headers=headers)
 
@@ -25,9 +25,11 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
 
     data = response.json()
 
+    total_points = sum([float(x["points"]) for x in data])
+
     return EarnedRestakingPoints(
         wallet_address=user_address,
-        total_points=data["total_points"] if 'total_points' in data else 0,
+        total_points=total_points,
         partner_name=constants.ZIRCUIT,
     )
 

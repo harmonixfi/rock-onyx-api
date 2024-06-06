@@ -24,7 +24,7 @@ class Statistics(BaseModel):
     slug: str
 
 
-class Vault_Dashboard(BaseModel):
+class VaultStats(BaseModel):
     name: str
     price_per_share: float
     apy_1y: float
@@ -34,7 +34,8 @@ class Vault_Dashboard(BaseModel):
     id: uuid.UUID
 
 
-class Dashboard(BaseModel):
+class DashboardStats(BaseModel):
     tvl_in_all_vaults: float
+    total_depositors: int
     tvl_composition: Dict[str, float]
-    vaults: List[Vault_Dashboard]
+    vaults: List[VaultStats]

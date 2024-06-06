@@ -112,6 +112,7 @@ async def get_portfolio_info(
             slug=vault.slug,
             initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
             points=get_user_earned_points(session, pos),
+            vault_network=vault.network_chain,
         )
 
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:

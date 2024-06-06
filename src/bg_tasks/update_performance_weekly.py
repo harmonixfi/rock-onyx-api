@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pendulum
 import seqlog
+from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
@@ -17,6 +18,7 @@ from core.config import settings
 from core.db import engine
 from models import Vault
 from models.pps_history import PricePerShareHistory
+from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
@@ -224,6 +226,11 @@ def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_a
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault_id
     )
+
+    # count all portfolio of vault
+    statement = select(func.count()).select_from(UserPortfolio).where(UserPortfolio.vault_id == vault_id)
+    count = session.scalar(statement)
+    
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
@@ -241,6 +248,7 @@ def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_a
         downside_risk=downside,
         earned_fee=vault_state.performance_fee + vault_state.management_fee,
         fee_structure=fee_info,
+        unique_depositors=count
     )
     update_price_per_share(vault_id, current_price_per_share)
 
