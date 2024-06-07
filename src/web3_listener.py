@@ -66,7 +66,8 @@ def _extract_delta_neutral_event(entry):
         from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
-    amount = int(data[2:66], 16) / 1e6
+    amount = int(data[2:66], 16)
+    amount = amount / 1e18 if len(str(amount)) >= 18 else amount / 1e6
     shares = int(data[66 : 66 + 64], 16) / 1e6
     return amount, shares, from_address
 
