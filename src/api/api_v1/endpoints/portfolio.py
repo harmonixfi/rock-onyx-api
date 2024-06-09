@@ -99,7 +99,11 @@ async def get_portfolio_info(
             user_address=pos.user_address,
             vault_address=vault.contract_address,
             total_balance=pos.total_balance,
-            init_deposit=pos.init_deposit + pos.pending_withdrawal,
+            init_deposit=(
+                pos.init_deposit + pos.pending_withdrawal
+                if pos.pending_withdrawal
+                else pos.init_deposit
+            ),
             entry_price=pos.entry_price,
             pnl=pos.pnl,
             status=pos.status,
