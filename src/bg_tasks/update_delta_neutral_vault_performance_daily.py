@@ -260,7 +260,6 @@ def main(chain: str):
             select(Vault)
             .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
             .where(Vault.is_active == True)
-            .where(Vault.id == "65f75bd7-a2d2-4764-ae31-78e4bb132c62")
             .where(Vault.network_chain == network_chain)
         ).all()
 
