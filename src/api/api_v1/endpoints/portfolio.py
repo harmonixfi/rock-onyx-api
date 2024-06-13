@@ -140,7 +140,7 @@ async def get_portfolio_info(
         price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-        position.total_balance = shares * price_per_share + pending_withdrawal
+        position.total_balance = shares * price_per_share + pending_withdrawal * price_per_share
         position.pnl = position.total_balance - position.init_deposit
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days

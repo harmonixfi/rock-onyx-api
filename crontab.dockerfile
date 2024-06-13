@@ -4,7 +4,7 @@ FROM python:3.10-alpine
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Update the package repository and install curl
-RUN apk update && apk add curl bash tzdata
+RUN apk update && apk add curl bash tzdata nano
 
 WORKDIR /app/
 
