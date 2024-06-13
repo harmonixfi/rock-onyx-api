@@ -127,6 +127,9 @@ def init_db(session: Session) -> None:
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_STABLECOIN_ADDRESS,
             slug="options-wheel-vault",
+            category="real_yield",
+            network_chain=NetworkChain.ethereum,
+            strategy_name="options-wheel",
         ),
         Vault(
             name="Delta Neutral Vault",
@@ -134,9 +137,12 @@ def init_db(session: Session) -> None:
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS,
             slug="delta-neutral-vault",
+            category="real_yield",
+            network_chain=NetworkChain.ethereum,
+            strategy_name="delta-neutral",
         ),
         Vault(
-            name="Restaking Delta Neutral Vault",
+            name="Renzo Restaking",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_RENZO_ZIRCUIT_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
@@ -144,9 +150,10 @@ def init_db(session: Session) -> None:
             routes="['renzo', 'zircuit']",
             category="points",
             network_chain=NetworkChain.ethereum,
+            strategy_name="delta-neutral",
         ),
         Vault(
-            name="Restaking Delta Neutral Vault",
+            name="KelpDao Restaking",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_KELPDAO_ARB_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
@@ -154,6 +161,7 @@ def init_db(session: Session) -> None:
             routes="['kelpdao']",
             category="points",
             network_chain=NetworkChain.arbitrum_one,
+            strategy_name="delta-neutral",
         ),
     ]
 
