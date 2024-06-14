@@ -11,4 +11,3 @@ class ReferralCode(SQLModel, table=True):
     code: str = Field(index=True, unique=True)
     usage_limit: int = Field(default=50)
     created_at: datetime = Field(default=datetime.now(timezone.utc))
-    enabled_at: Optional[datetime] = Field(default=None, nullable=True)
