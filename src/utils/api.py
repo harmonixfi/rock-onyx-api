@@ -3,6 +3,17 @@ from models.referralcodes import ReferralCode
 from models.referrals import Referral
 from models.user import User
 from sqlmodel import select
+import secrets
+import string
+
+def generate_referral_code(length=18):
+    # Define the characters that can be used in the referral code
+    characters = string.ascii_letters + string.digits
+    
+    # Generate a secure random string
+    referral_code = ''.join(secrets.choice(characters) for _ in range(length))
+    
+    return referral_code
 
 def get_user_by_wallet_address(session, wallet_address):
     statement = select(User).where(User.wallet_address == wallet_address)
@@ -41,7 +52,7 @@ def create_referral_code(session, user):
     new_referral_code = ReferralCode(
                 referral_code_id=uuid.uuid4(),
                 user_id=user.user_id,
-                code=uuid.uuid4().hex,
+                code=generate_referral_code(),
                 usage_limit=50
         )
     session.add(new_referral_code)
@@ -51,3 +62,4 @@ def get_referral_by_code(session, code):
         statement = select(ReferralCode).where(ReferralCode.code == code)
         referral = session.exec(statement).first()
         return referral
+
