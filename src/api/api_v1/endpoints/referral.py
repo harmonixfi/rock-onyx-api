@@ -66,4 +66,4 @@ async def get_points(session: SessionDep, wallet_address: str):
         user_points = session.exec(statement).first()
         if not user_points:
                 return {'points': 0, 'start_date': datetime.datetime.now(), 'end_date': None, 'session_name': None}
-        return {'points': user_points.points, 'start_date': datetime.datetime.now(), 'end_date': None, 'session_name': 'Session 1'}
+        return {'points': user_points.points, 'start_date': datetime.datetime.now(), 'end_date': None, 'session_name': None}
