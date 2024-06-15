@@ -6,7 +6,7 @@ from sqlmodel import select
 import secrets
 import string
 
-def generate_referral_code(length=10):
+def generate_referral_code(length=8):
     # Define the characters that can be used in the referral code
     characters = string.ascii_letters + string.digits
     
