@@ -11,3 +11,4 @@ from .referralcodes import ReferralCode
 from .referrals import Referral
 from .rewards import Reward
 from .user import User
+from .sessions import Session
