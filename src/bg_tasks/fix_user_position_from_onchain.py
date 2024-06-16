@@ -63,7 +63,7 @@ def get_pps(vault_contract: Contract) -> int:
     return pps
 
 
-def fix_user_position(vault: Vault):
+def fix_user_position_for_vault(vault: Vault):
     abi_name = (
         "rockonyxdeltaneutralvault"
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
@@ -93,15 +93,61 @@ def fix_user_position(vault: Vault):
         session.add(user_portfolio)
         session.commit()
         print(f"User {user_portfolio.user_address} position updated")
+    
     print(f"Vault {vault.contract_address} user positions updated")
 
 
+def fix_user_position_by_address(vault: Vault, user_address: str):
+    user_portfolio = session.exec(
+        select(UserPortfolio)
+        .where(UserPortfolio.user_address == user_address.lower())
+        .where(UserPortfolio.status == PositionStatus.ACTIVE)
+    ).first()
+
+    abi_name = (
+        "rockonyxdeltaneutralvault"
+        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
+        else "rockonyxstablecoin"
+    )
+    vault_contract, w3 = get_vault_contract(vault, abi_name)
+    
+    user_state = get_user_state(vault_contract, user_address)
+    pps = get_pps(vault_contract)
+    total_balance = (user_state[1] * pps) / 1e12
+
+    pending_withdrawal = get_pending_withdrawal_shares(
+        vault_contract, user_address
+    )
+    if user_portfolio is None:
+        user_portfolio = UserPortfolio(
+            vault_id=vault.id,
+            user_address=user_address,
+            init_deposit=user_state[0] / 1e6,
+            total_shares= user_state[1] / 1e6,
+            total_balance=total_balance,
+            pending_withdrawal=pending_withdrawal / 1e6
+        )
+    else:
+        user_portfolio.init_deposit = user_state[0] / 1e6
+        user_portfolio.total_shares = user_state[1] / 1e6
+        user_portfolio.total_balance = total_balance
+        user_portfolio.pending_withdrawal = pending_withdrawal / 1e6
+
+    session.add(user_portfolio)
+    session.commit()
+
 def main():
-    vaults = session.exec(
-        select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
-    ).all()
-    for vault in vaults:
-        fix_user_position(vault)
+    # vaults = session.exec(
+    #     select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+    # ).all()
+    # for vault in vaults:
+    #     fix_user_position_for_vault(vault)
+
+    vault = session.exec(
+        select(Vault).where(Vault.id == '65f75bd7-a2d2-4764-ae31-78e4bb132c62')
+    ).first()
+
+    fix_user_position_by_address(vault, '0x7354F8aDFDfc6ca4D9F81Fc20d04eb8A7b11b01b'.lower())
 
 
 if __name__ == "__main__":
