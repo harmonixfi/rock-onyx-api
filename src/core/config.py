@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     WSTETH_ADDRESS: str = "0x5979D7b546E38E414F7E9822514be443A4800529"
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+    DAI_ADDRESS: dict = {
+        'arbitrum_one': '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
+        'ethereum': '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+    }
     ROCKONYX_STABLECOIN_ADDRESS: str = ""
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
     ROCKONYX_RENZO_ZIRCUIT_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
@@ -69,6 +73,9 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
 
+    MULTIPLE_STABLECOINS_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Deposited(address,address,uint256,uint256)"]
+    ).hex()
     DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
         ["string"], ["Deposited(address,uint256,uint256)"]
     ).hex()

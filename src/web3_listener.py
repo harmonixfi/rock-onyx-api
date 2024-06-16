@@ -43,6 +43,8 @@ REGISTERED_TOPICS = [
     settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC,
 ]
 
+chain_name = None
+
 
 session = Session(engine)
 
@@ -64,10 +66,17 @@ def _extract_delta_neutral_event(entry):
     from_address = None
     if len(entry["topics"]) >= 2:
         from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+
+    # token_in = None
+    # if len(entry["topics"]) >= 3:
+    #     token_in = f'0x{entry["topics"][2].hex()[26:]}'
+    
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     amount = int(data[2:66], 16)
+
     amount = amount / 1e18 if len(str(amount)) >= 18 else amount / 1e6
+    
     shares = int(data[66 : 66 + 64], 16) / 1e6
     return amount, shares, from_address
 
@@ -217,7 +226,7 @@ def handle_event(vault_address: str, entry, event_name):
         latest_pps=latest_pps,
     )
 
-    session.commit()
+    # session.commit()
 
 
 EVENT_FILTERS = {
@@ -231,6 +240,9 @@ EVENT_FILTERS = {
         "event": "Withdrawn",
     },
     settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: {
+        "event": "Deposit",
+    },
+    settings.MULTIPLE_STABLECOINS_DEPOSIT_EVENT_TOPIC: {
         "event": "Deposit",
     },
     settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC: {
@@ -308,6 +320,8 @@ class Web3Listener(WebSocketManager):
 
 
 async def run(network: str):
+    global chain_name
+
     setup_logging_to_console(level=logging.INFO, logger=logger)
     setup_logging_to_file(app=f"web3_listener_{network}", level=logging.INFO, logger=logger)
 
@@ -317,6 +331,7 @@ async def run(network: str):
 
     # Parse network to NetworkChain enum
     network_chain = NetworkChain[network.lower()]
+    chain_name = network.lower()
 
     # Select connection_url based on network_chain
     if network_chain == NetworkChain.arbitrum_one:
