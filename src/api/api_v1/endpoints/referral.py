@@ -5,6 +5,7 @@ import datetime
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import distinct, func
 from sqlmodel import select
+import models
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
@@ -57,13 +58,16 @@ async def get_rewards(session: SessionDep, wallet_address: str):
         return {'reward_percentage': rewards.reward_percentage, 'depositors': depositors}
 
 
-@router.get("/users/{wallet_address}/points", response_model=schemas.Points)
+@router.get("/users/{wallet_address}/points", response_model=List[schemas.Points])
 async def get_points(session: SessionDep, wallet_address: str):
         user = get_user_by_wallet_address(session, wallet_address)
+        Points = []
         if not user:
-                return {'points': 0, 'start_date': None, 'end_date': None, 'session_name': None}
+                return Points
         statement = select(UserPoints).where(UserPoints.wallet_address == wallet_address)
-        user_points = session.exec(statement).first()
+        user_points = session.exec(statement).all()
         if not user_points:
-                return {'points': 0, 'start_date': datetime.datetime.now(), 'end_date': None, 'session_name': None}
-        return {'points': user_points.points, 'start_date': datetime.datetime.now(), 'end_date': None, 'session_name': None}
+                return Points
+        for user_point in user_points:
+                Points.append({'points': user_point.points, 'start_date': user_point.created_at, 'end_date': user_point.updated_at, 'session_name': user_point.partner_name})
+        return Points
