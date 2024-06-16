@@ -7,3 +7,8 @@ from .transaction import Transaction
 from .price_feed_oracle_history import PriceFeedOracleHistory
 from .user_points import UserPoints, UserPointAudit
 from .point_distribution_history import PointDistributionHistory
+from .referralcodes import ReferralCode
+from .referrals import Referral
+from .rewards import Reward
+from .user import User
+from .sessions import Session

@@ -5,6 +5,8 @@ from sqlmodel import Session, create_engine, select
 import crud
 from core.config import settings
 from models.pps_history import PricePerShareHistory
+from models.referralcodes import ReferralCode
+from models.user import User
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault
 
@@ -117,6 +119,54 @@ def seed_vault_performance(stablecoin_vault: Vault, session):
 
         session.commit()
 
+def seed_users(session: Session):
+    cnt = session.exec(select(func.count()).select_from(User)).one()
+    if cnt == 0:
+        users = [
+            User(
+                wallet_address="0x1111111111111111111111111111111111111111",
+            ),
+            User(
+                wallet_address="0x2222222222222222222222222222222222222222",
+            ),
+            User(
+                wallet_address="0x3333333333333333333333333333333333333333",
+            ),
+        ]
+        for user in users:
+            existing_user = session.exec(
+                select(User).where(User.wallet_address == user.wallet_address)
+            ).first()
+            if not existing_user:
+                session.add(user)
+    session.commit()
+
+def seed_referral_codes(session: Session):
+    cnt = session.exec(select(func.count()).select_from(ReferralCode)).one()
+    if cnt == 0:
+        users = session.exec(select(User)).all()
+        user_ids = [user.user_id for user in users]
+        referral_codes = [ 
+            ReferralCode(
+                user_id=user_ids[0],
+                code="referral1",
+                usage_limit=50,
+            ),
+            ReferralCode(
+                user_id=user_ids[1],
+                code="referral2",
+                usage_limit=50,
+            ),
+            ReferralCode(
+                user_id=user_ids[2],
+                code="referral3",
+                usage_limit=50,
+            ),
+        ]
+        for referral_code in referral_codes:
+            session.add(referral_code)
+    session.commit()
+
 
 def init_db(session: Session) -> None:
     # Create initial data
@@ -173,6 +223,8 @@ def init_db(session: Session) -> None:
 
     seed_vault_performance(stablecoin_vault, session)
     seed_stablecoin_pps_history(session, stablecoin_vault)
+    seed_users(session)
+    seed_referral_codes(session)
 
     renzo_zircuit_restaking = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
