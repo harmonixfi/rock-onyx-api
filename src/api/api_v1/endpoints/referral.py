@@ -9,6 +9,7 @@ import models
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
+from models.reward_sessions import RewardSessions
 from models.user import User
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
@@ -67,25 +68,22 @@ async def get_points(session: SessionDep, wallet_address: str):
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return []
-    statement = select(UserPoints).where(UserPoints.wallet_address == wallet_address)
+    statement = select(UserPoints, RewardSessions).where(
+        UserPoints.session_id == RewardSessions.session_id
+    )
+
     user_points = session.exec(statement).all()
+
     if not user_points:
         return []
     points: List[schemas.Points] = []
     for user_point in user_points:
-        # get session name by session id
-        statement = select(models.RewardSessions).where(
-            models.RewardSessions.session_id == user_point.session_id
-        )
-
-        reward_session = session.exec(statement).first()
         point = schemas.Points(
-            points=user_point.points,
-            partner_name=user_point.partner_name,
+            points=user_point.UserPoints.points,
+            start_date=user_point.RewardSessions.start_date,
+            end_date=user_point.RewardSessions.end_date,
+            session_name=user_point.RewardSessions.session_name,
+            partner_name=user_point.RewardSessions.partner_name,
         )
-        if reward_session:
-            point.start_date = reward_session.start_date
-            point.end_date = reward_session.end_date
-            point.session_name = reward_session.session_name
         points.append(point)
     return points
