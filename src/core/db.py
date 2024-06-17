@@ -7,6 +7,7 @@ from core.config import settings
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.user import User
+from models.user_points import UserPoints
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault
 
@@ -167,7 +168,40 @@ def seed_referral_codes(session: Session):
             session.add(referral_code)
     session.commit()
 
-
+def seed_points(session: Session):
+    cnt = session.exec(select(func.count()).select_from(UserPoints)).one()
+    if cnt == 0:
+        vault = session.exec(select(Vault)).first()
+        points = [
+            UserPoints(
+                vault_id=vault.id,
+                wallet_address="0x1111111111111111111111111111111111111111",
+                points=100,
+                partner_name="Session 1",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
+            UserPoints(
+                vault_id=vault.id,
+                wallet_address="0x1111111111111111111111111111111111111111",
+                points=200,
+                partner_name="Session 2",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
+            UserPoints(
+                vault_id=vault.id,
+                wallet_address="0x1111111111111111111111111111111111111111",
+                points=300,
+                partner_name="Session 3",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
+        ]
+        for point in points:
+            session.add(point)
+    session.commit()
+    
 def init_db(session: Session) -> None:
     # Create initial data
     vaults = [
@@ -225,6 +259,7 @@ def init_db(session: Session) -> None:
     seed_stablecoin_pps_history(session, stablecoin_vault)
     seed_users(session)
     seed_referral_codes(session)
+    seed_points(session)
 
     renzo_zircuit_restaking = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
