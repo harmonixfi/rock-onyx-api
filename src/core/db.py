@@ -4,6 +4,7 @@ from sqlmodel import Session, create_engine, select
 
 import crud
 from core.config import settings
+from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.user import User
@@ -177,7 +178,7 @@ def seed_points(session: Session):
                 vault_id=vault.id,
                 wallet_address="0x1111111111111111111111111111111111111111",
                 points=100,
-                partner_name="Session 1",
+                partner_name="Harmonix",
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             ),
@@ -185,7 +186,7 @@ def seed_points(session: Session):
                 vault_id=vault.id,
                 wallet_address="0x1111111111111111111111111111111111111111",
                 points=200,
-                partner_name="Session 2",
+                partner_name="Harmonix",
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             ),
@@ -193,7 +194,7 @@ def seed_points(session: Session):
                 vault_id=vault.id,
                 wallet_address="0x1111111111111111111111111111111111111111",
                 points=300,
-                partner_name="Session 3",
+                partner_name="Harmonix",
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             ),
@@ -202,6 +203,22 @@ def seed_points(session: Session):
             session.add(point)
     session.commit()
     
+def seed_points_multiplier_configs(session: Session):
+    cnt = session.exec(select(func.count()).select_from(PointsMultiplierConfig)).one()
+    if cnt == 0:
+        vaults = session.exec(select(Vault)).all()
+        for vault in vaults:
+            multiplier = 1
+            if "restaking" in vault.slug:
+                multiplier = 1.5
+            points_multiplier_config = PointsMultiplierConfig(
+                vault_id=vault.id,
+                multiplier=multiplier,
+                created_at=datetime.now(),
+            )
+            session.add(points_multiplier_config)
+    session.commit()
+
 def init_db(session: Session) -> None:
     # Create initial data
     vaults = [
@@ -260,7 +277,7 @@ def init_db(session: Session) -> None:
     seed_users(session)
     seed_referral_codes(session)
     seed_points(session)
-
+    seed_points_multiplier_configs(session)
     renzo_zircuit_restaking = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
     ).first()

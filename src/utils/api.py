@@ -5,6 +5,12 @@ from models.user import User
 from sqlmodel import select
 import secrets
 import string
+from eth_utils import is_address, to_checksum_address
+
+def is_valid_wallet_address(wallet_address):
+        if not is_address(wallet_address):
+                return False
+        return to_checksum_address(wallet_address)
 
 def generate_referral_code(length=8):
     # Define the characters that can be used in the referral code
