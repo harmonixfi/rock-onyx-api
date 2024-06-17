@@ -168,6 +168,11 @@ def calculate_point_distributions(vault: Vault):
         )
 
         total_earned_points = get_earned_points(vault.contract_address, partner_name)
+        total_earned_points.total_points = (
+            total_earned_points.total_points
+            if total_earned_points.total_points >= prev_point
+            else prev_point
+        )
         logger.info(
             "Total earned points for partner %s: %s",
             partner_name,
@@ -176,14 +181,14 @@ def calculate_point_distributions(vault: Vault):
 
         # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
         earned_points_in_period = total_earned_points.total_points - prev_point
-
-        distribute_points(
-            vault,
-            partner_name,
-            user_positions,
-            earned_points_in_period,
-            total_earned_points,
-        )
+        if earned_points_in_period > 0:
+            distribute_points(
+                vault,
+                partner_name,
+                user_positions,
+                earned_points_in_period,
+                total_earned_points,
+            )
 
         if partner_name in {constants.RENZO, constants.KELPDAO}:
             # distribute eigenlayer points to user
@@ -197,6 +202,12 @@ def calculate_point_distributions(vault: Vault):
                 prev_point,
             )
 
+            total_earned_points.eigen_layer_points = (
+                total_earned_points.eigen_layer_points
+                if total_earned_points.eigen_layer_points >= prev_eigen_point
+                else prev_eigen_point
+            )
+
             # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
             earned_eigen_points_in_period = (
                 total_earned_points.eigen_layer_points - prev_eigen_point
@@ -207,13 +218,14 @@ def calculate_point_distributions(vault: Vault):
                 total_earned_points.eigen_layer_points,
             )
 
-            distribute_points(
-                vault,
-                constants.EIGENLAYER,
-                user_positions,
-                earned_eigen_points_in_period,
-                total_earned_points,
-            )
+            if earned_eigen_points_in_period > 0:
+                distribute_points(
+                    vault,
+                    constants.EIGENLAYER,
+                    user_positions,
+                    earned_eigen_points_in_period,
+                    total_earned_points,
+                )
 
     session.commit()
 
