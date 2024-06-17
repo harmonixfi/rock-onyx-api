@@ -6,6 +6,7 @@ import crud
 from core.config import settings
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
+from models.reward_sessions import RewardSessions
 from models.user import User
 from models.user_points import UserPoints
 from models.vault_performance import VaultPerformance
@@ -21,9 +22,9 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
 def init_pps_history(session: Session, vault: Vault):
     cnt = session.exec(
-        select(func.count()).select_from(PricePerShareHistory).where(
-            PricePerShareHistory.vault_id == vault.id
-        )
+        select(func.count())
+        .select_from(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault.id)
     ).one()
 
     if cnt == 0:
@@ -120,6 +121,7 @@ def seed_vault_performance(stablecoin_vault: Vault, session):
 
         session.commit()
 
+
 def seed_users(session: Session):
     cnt = session.exec(select(func.count()).select_from(User)).one()
     if cnt == 0:
@@ -142,12 +144,13 @@ def seed_users(session: Session):
                 session.add(user)
     session.commit()
 
+
 def seed_referral_codes(session: Session):
     cnt = session.exec(select(func.count()).select_from(ReferralCode)).one()
     if cnt == 0:
         users = session.exec(select(User)).all()
         user_ids = [user.user_id for user in users]
-        referral_codes = [ 
+        referral_codes = [
             ReferralCode(
                 user_id=user_ids[0],
                 code="referral1",
@@ -168,40 +171,22 @@ def seed_referral_codes(session: Session):
             session.add(referral_code)
     session.commit()
 
-def seed_points(session: Session):
-    cnt = session.exec(select(func.count()).select_from(UserPoints)).one()
+
+def seed_reward_sessions(session: Session):
+    cnt = session.exec(select(func.count()).select_from(RewardSessions)).one()
     if cnt == 0:
-        vault = session.exec(select(Vault)).first()
-        points = [
-            UserPoints(
-                vault_id=vault.id,
-                wallet_address="0x1111111111111111111111111111111111111111",
-                points=100,
-                partner_name="Session 1",
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            ),
-            UserPoints(
-                vault_id=vault.id,
-                wallet_address="0x1111111111111111111111111111111111111111",
-                points=200,
-                partner_name="Session 2",
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            ),
-            UserPoints(
-                vault_id=vault.id,
-                wallet_address="0x1111111111111111111111111111111111111111",
-                points=300,
-                partner_name="Session 3",
-                created_at=datetime.now(),
-                updated_at=datetime.now(),
-            ),
+        reward_sessions = [
+            RewardSessions(
+                session_name="Session 1",
+                start_date=datetime(2024, 1, 1),
+                partner_name="Harmoix",
+            )
         ]
-        for point in points:
-            session.add(point)
+        for reward_session in reward_sessions:
+            session.add(reward_session)
     session.commit()
-    
+
+
 def init_db(session: Session) -> None:
     # Create initial data
     vaults = [
@@ -259,7 +244,7 @@ def init_db(session: Session) -> None:
     seed_stablecoin_pps_history(session, stablecoin_vault)
     seed_users(session)
     seed_referral_codes(session)
-    seed_points(session)
+    seed_reward_sessions(session)
 
     renzo_zircuit_restaking = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
