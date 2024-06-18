@@ -1,8 +1,8 @@
 """Added reward_session_config and user_points_history table
 
-Revision ID: e55384a5a769
+Revision ID: d07ca5ed31cb
 Revises: 33e9f6b924d5
-Create Date: 2024-06-17 16:05:41.166004
+Create Date: 2024-06-18 08:30:58.272621
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e55384a5a769'
+revision: str = 'd07ca5ed31cb'
 down_revision: Union[str, None] = '33e9f6b924d5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,6 +26,7 @@ def upgrade() -> None:
     sa.Column('session_id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
     sa.Column('start_delay_days', sa.Integer(), nullable=False),
     sa.Column('max_points', sa.Float(), nullable=False),
+    sa.Column('config_date', sa.DateTime(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['session_id'], ['reward_sessions.session_id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -35,7 +36,6 @@ def upgrade() -> None:
     sa.Column('user_points_id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
     sa.Column('point', sa.Float(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['user_points_id'], ['user_points.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

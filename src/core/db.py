@@ -7,6 +7,7 @@ from core.config import settings
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
+from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
 from models.user import User
 from models.user_points import UserPoints
@@ -180,11 +181,28 @@ def seed_reward_sessions(session: Session):
             RewardSessions(
                 session_name="Session 1",
                 start_date=datetime(2024, 1, 1),
-                partner_name="Harmoix",
+                partner_name="Harmonix",
             )
         ]
         for reward_session in reward_sessions:
             session.add(reward_session)
+    session.commit()
+
+def seed_reward_session_config(session: Session):
+    cnt = session.exec(select(func.count()).select_from(RewardSessionConfig)).one()
+    if cnt == 0:
+        reward_session = session.exec(select(RewardSessions).where(RewardSessions.session_name == "Session 1")).first()
+        reward_session_configs = [
+            RewardSessionConfig(
+                session_id=reward_session.session_id,
+                start_delay_days=69,
+                max_points=5000000,
+                config_date=datetime(2024, 1, 1),
+                created_at=datetime.now(),
+            ),
+        ]
+        for reward_session_config in reward_session_configs:
+            session.add(reward_session_config)
     session.commit()
 
 def init_db(session: Session) -> None:
@@ -245,7 +263,7 @@ def init_db(session: Session) -> None:
     seed_users(session)
     seed_referral_codes(session)
     seed_reward_sessions(session)
-
+    seed_reward_session_config(session)
     renzo_zircuit_restaking = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
     ).first()

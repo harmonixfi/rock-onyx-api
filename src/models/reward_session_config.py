@@ -10,4 +10,5 @@ class RewardSessionConfig(SQLModel, table=True):
     session_id: UUID = Field(foreign_key="reward_sessions.session_id")
     start_delay_days: int
     max_points: float
+    config_date: datetime
     created_at: datetime = Field(default=datetime.now(timezone.utc))
