@@ -21,7 +21,10 @@ from api.api_v1.deps import SessionDep
 from models import Vault
 from core.config import settings
 from core import constants
-from utils.api import create_user_with_referral, get_user_by_wallet_address
+from utils.api import (
+    create_user_with_referral,
+    get_user_by_wallet_address,
+)
 
 router = APIRouter()
 
@@ -55,12 +58,30 @@ async def get_rewards(session: SessionDep, wallet_address: str):
         return {"reward_percentage": 0, "depositors": 0}
     statement = select(Referral).where(Referral.referrer_id == user.user_id)
     referrals = session.exec(statement).all()
-    depositors = len(referrals)
+    total_referees = len(referrals)
+
+    # get wallet address of all depositors from user table by user_id
+    statement = select(User).where(
+        User.user_id.in_([referral.referee_id for referral in referrals])
+    )
+    depositors = session.exec(statement).all()
+    high_balance_depositors = 0
+    for depositor in depositors:
+        statement = select(UserPortfolio).where(
+            UserPortfolio.user_address == depositor.wallet_address
+        )
+        portfolios = session.exec(statement).first()
+        if portfolios and portfolios.total_balance > 50:
+            high_balance_depositors += 1
     statement = select(Reward).where(Reward.user_id == user.user_id)
     rewards = session.exec(statement).first()
     if not rewards:
         rewards = Reward(reward_percentage=0)
-    return {"reward_percentage": rewards.reward_percentage, "depositors": depositors}
+    return {
+        "reward_percentage": 0.05,
+        "depositors": total_referees,
+        "high_balance_depositors": high_balance_depositors,
+    }
 
 
 @router.get("/users/{wallet_address}/points", response_model=List[schemas.Points])

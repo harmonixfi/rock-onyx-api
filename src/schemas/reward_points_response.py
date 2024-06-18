@@ -8,6 +8,7 @@ from models.user_points import UserPoints
 class Rewards(BaseModel):
     reward_percentage: float
     depositors: int
+    high_balance_depositors: int
 
 class Points(BaseModel):
     points: float
