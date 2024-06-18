@@ -127,13 +127,13 @@ def seed_users(session: Session):
     if cnt == 0:
         users = [
             User(
-                wallet_address="0x1111111111111111111111111111111111111111",
+                wallet_address="0x7354F8aDFDfc6ca4D9F81Fc20d04eb8A7b11b01b",
             ),
             User(
-                wallet_address="0x2222222222222222222222222222222222222222",
+                wallet_address="0x6DBd53C16e8024DcFb06CcAace1344fDfF12b0D9",
             ),
             User(
-                wallet_address="0x3333333333333333333333333333333333333333",
+                wallet_address="0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa",
             ),
         ]
         for user in users:
