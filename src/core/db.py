@@ -197,7 +197,6 @@ def seed_reward_session_config(session: Session):
                 session_id=reward_session.session_id,
                 start_delay_days=69,
                 max_points=5000000,
-                config_date=datetime(2024, 1, 1),
                 created_at=datetime.now(),
             ),
         ]

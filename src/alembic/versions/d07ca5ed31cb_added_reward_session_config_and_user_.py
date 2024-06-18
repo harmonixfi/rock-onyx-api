@@ -26,7 +26,6 @@ def upgrade() -> None:
     sa.Column('session_id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
     sa.Column('start_delay_days', sa.Integer(), nullable=False),
     sa.Column('max_points', sa.Float(), nullable=False),
-    sa.Column('config_date', sa.DateTime(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['session_id'], ['reward_sessions.session_id'], ),
     sa.PrimaryKeyConstraint('id')

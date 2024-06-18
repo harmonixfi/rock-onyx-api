@@ -44,7 +44,7 @@ def harmonix_distribute_points():
         logger.info("No reward session config found for Harmonix.")
         return
 
-    session_start_date = reward_session_config.config_date + timedelta(
+    session_start_date = reward_session.start_date + timedelta(
         days=reward_session_config.start_delay_days
     )
     session_start_date = session_start_date.replace(tzinfo=timezone.utc)
