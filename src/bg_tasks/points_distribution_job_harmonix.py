@@ -101,7 +101,7 @@ def harmonix_distribute_points():
         if not user_points:
             # Calculate points to be distributed
             duration_hours = (
-                current_time - portfolio.trade_start_date.replace(tzinfo=timezone.utc)
+                current_time - max(session_start_date.replace(tzinfo=timezone.utc), portfolio.trade_start_date.replace(tzinfo=timezone.utc))
             ).total_seconds() / 3600
             points = (portfolio.total_balance / 100) * duration_hours * multiplier
 
@@ -131,6 +131,8 @@ def harmonix_distribute_points():
             total_points_distributed += points
 
             if total_points_distributed >= reward_session_config.max_points:
+                reward_session.end_date = current_time
+                session.commit()
                 break
         else:
             #get last user points history
@@ -145,7 +147,6 @@ def harmonix_distribute_points():
                 current_time - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
             points = (portfolio.total_balance / 100) * duration_hours * multiplier
-            points+=1000
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:
                 points = reward_session_config.max_points - total_points_distributed
@@ -161,6 +162,13 @@ def harmonix_distribute_points():
             )
             session.add(user_points_history)
             session.commit()
+
+            total_points_distributed += points
+
+            if total_points_distributed >= reward_session_config.max_points:
+                reward_session.end_date = current_time
+                session.commit()
+                break
     logger.info("Points distribution job completed.")
 
 
