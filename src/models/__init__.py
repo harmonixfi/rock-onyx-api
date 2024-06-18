@@ -13,3 +13,5 @@ from .rewards import Reward
 from .user import User
 from .reward_sessions import RewardSessions
 from .points_multiplier_config import PointsMultiplierConfig
+from .reward_session_config import RewardSessionConfig
+from .user_points_history import UserPointsHistory
