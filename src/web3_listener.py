@@ -226,7 +226,7 @@ def handle_event(vault_address: str, entry, event_name):
         latest_pps=latest_pps,
     )
 
-    # session.commit()
+    session.commit()
 
 
 EVENT_FILTERS = {
