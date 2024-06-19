@@ -113,7 +113,7 @@ async def get_points(session: SessionDep, wallet_address: str):
     statement = (
         select(UserPoints, RewardSessions)
         .where(UserPoints.session_id == RewardSessions.session_id)
-        .where(RewardSessions.end_date is None)
+        .where(RewardSessions.end_date == None)
         .where(UserPoints.partner_name == constants.HARMONIX)
         .where(UserPoints.wallet_address == wallet_address)
     )
