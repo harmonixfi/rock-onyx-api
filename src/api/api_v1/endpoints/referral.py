@@ -24,6 +24,7 @@ from core import constants
 from utils.api import (
     create_user_with_referral,
     get_user_by_wallet_address,
+    is_valid_wallet_address,
 )
 
 router = APIRouter()
@@ -31,18 +32,24 @@ router = APIRouter()
 
 @router.get("/users/{wallet_address}", response_model=dict)
 async def get_user(session: SessionDep, wallet_address: str):
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
     user = get_user_by_wallet_address(session, wallet_address)
     return {"joined": user is not None}
 
 
 @router.post("/users/join", response_model=dict)
 async def join_user(session: SessionDep, user: schemas.UserJoin):
+    if not is_valid_wallet_address(user.user_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
     valid = create_user_with_referral(user.user_address, user.referral_code, session)
     return {"valid": valid}
 
 
 @router.get("/users/{wallet_address}/referral", response_model=List[str])
 async def get_referral_codes(session: SessionDep, wallet_address: str):
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return []
@@ -53,6 +60,8 @@ async def get_referral_codes(session: SessionDep, wallet_address: str):
 
 @router.get("/users/{wallet_address}/rewards", response_model=schemas.Rewards)
 async def get_rewards(session: SessionDep, wallet_address: str):
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return {"reward_percentage": 0, "depositors": 0}
@@ -86,6 +95,8 @@ async def get_rewards(session: SessionDep, wallet_address: str):
 
 @router.get("/users/{wallet_address}/points", response_model=List[schemas.Points])
 async def get_points(session: SessionDep, wallet_address: str):
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return []
