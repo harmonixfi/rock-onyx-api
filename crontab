@@ -3,3 +3,4 @@
 15 8 * * 5 cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain ethereum > /app-logs/update_delta_neutral_vault_performance_daily.log
 0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle > /app-logs/update_usdce_usdc_price_feed_oracle.log
 0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation > /app-logs/restaking_point_calculation.log
+0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix > /app-logs/points_distribution_job_harmonix.log
