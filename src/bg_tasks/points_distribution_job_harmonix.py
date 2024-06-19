@@ -12,12 +12,12 @@ from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault
 from core.db import engine
 from core.config import settings
+from core import constants
 from sqlmodel import Session, select
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-PARTNER_NAME = "Harmonix"
 session = Session(engine)
 
 
@@ -26,7 +26,7 @@ def harmonix_distribute_points():
     # get reward session with end_date = null, and partner_name = Harmonix
     reward_session_query = (
         select(RewardSessions)
-        .where(RewardSessions.partner_name == PARTNER_NAME)
+        .where(RewardSessions.partner_name == constants.HARMONIX)
         .where(RewardSessions.end_date == None)
     )
     reward_session = session.exec(reward_session_query).first()
@@ -54,7 +54,7 @@ def harmonix_distribute_points():
 
     session_points_query = (
         select(UserPoints)
-        .where(UserPoints.partner_name == PARTNER_NAME)
+        .where(UserPoints.partner_name == constants.HARMONIX)
         .where(UserPoints.created_at >= session_start_date)
     )
     
@@ -91,7 +91,7 @@ def harmonix_distribute_points():
         user_points_query = (
             select(UserPoints)
             .where(UserPoints.wallet_address == portfolio.user_address)
-            .where(UserPoints.partner_name == PARTNER_NAME)
+            .where(UserPoints.partner_name == constants.HARMONIX)
             .where(UserPoints.session_id == reward_session.session_id)
             .where(UserPoints.vault_id == portfolio.vault_id)
         )
@@ -113,7 +113,7 @@ def harmonix_distribute_points():
                 vault_id=portfolio.vault_id,
                 wallet_address=portfolio.user_address,
                 points=points,
-                partner_name=PARTNER_NAME,
+                partner_name=constants.HARMONIX,
                 session_id=reward_session.session_id,
                 created_at=current_time,
             )

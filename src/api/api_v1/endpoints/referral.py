@@ -66,9 +66,11 @@ async def get_rewards(session: SessionDep, wallet_address: str):
     wallet_address = wallet_address.lower()
     if not is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=400, detail="Invalid wallet address")
+
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return {"reward_percentage": 0, "depositors": 0}
+
     statement = select(Referral).where(Referral.referrer_id == user.user_id)
     referrals = session.exec(statement).all()
     total_referees = len(referrals)
@@ -86,6 +88,7 @@ async def get_rewards(session: SessionDep, wallet_address: str):
         portfolios = session.exec(statement).first()
         if portfolios and portfolios.total_balance > 50:
             high_balance_depositors += 1
+
     statement = select(Reward).where(Reward.user_id == user.user_id)
     rewards = session.exec(statement).first()
     if not rewards:
@@ -102,17 +105,24 @@ async def get_points(session: SessionDep, wallet_address: str):
     wallet_address = wallet_address.lower()
     if not is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=400, detail="Invalid wallet address")
+
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
         return []
-    statement = select(UserPoints, RewardSessions).where(
-        UserPoints.session_id == RewardSessions.session_id
+
+    statement = (
+        select(UserPoints, RewardSessions)
+        .where(UserPoints.session_id == RewardSessions.session_id)
+        .where(RewardSessions.end_date is None)
+        .where(UserPoints.partner_name == constants.HARMONIX)
+        .where(UserPoints.wallet_address == wallet_address)
     )
 
     user_points = session.exec(statement).all()
 
     if not user_points:
         return []
+
     points: List[schemas.Points] = []
     for user_point in user_points:
         point = schemas.Points(
