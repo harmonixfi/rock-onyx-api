@@ -52,14 +52,13 @@ def harmonix_distribute_points():
         logger.info("Session 1 has not started yet.")
         return
 
-    # select all user points distributed where partner_name is Harmonix and created_at is greater than or equal to SESSION_1_START_DATE
-    session_1_points_query = (
+    session_points_query = (
         select(UserPoints)
         .where(UserPoints.partner_name == PARTNER_NAME)
         .where(UserPoints.created_at >= session_start_date)
     )
     
-    total_points_distributed = sum([user_points.points for user_points in session.exec(session_1_points_query).all()])
+    total_points_distributed = sum([user_points.points for user_points in session.exec(session_points_query).all()])
 
     if total_points_distributed >= reward_session_config.max_points:
         logger.info("Maximum points for Session 1 have been distributed.")
