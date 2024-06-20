@@ -43,13 +43,16 @@ def harmonix_distribute_points():
     if not reward_session_config:
         logger.info("No reward session config found for Harmonix.")
         return
+    session_start_date = reward_session.start_date.replace(tzinfo=timezone.utc)
+    session_end_date = (reward_session.start_date + timedelta(days=reward_session_config.start_delay_days)).replace(tzinfo=timezone.utc)
+    if session_end_date < current_time:
+        reward_session.end_date = current_time
+        session.commit()
+        logger.info(f"{reward_session.session_name} has ended.")
+        return
 
-    session_start_date = reward_session.start_date + timedelta(
-        days=reward_session_config.start_delay_days
-    )
-    session_start_date = session_start_date.replace(tzinfo=timezone.utc)
     if current_time < session_start_date:
-        logger.info("Session 1 has not started yet.")
+        logger.info(f"{reward_session.session_name} has not started yet.")
         return
 
     session_points_query = (
@@ -57,12 +60,23 @@ def harmonix_distribute_points():
         .where(UserPoints.partner_name == constants.HARMONIX)
         .where(UserPoints.created_at >= session_start_date)
     )
-    
-    total_points_distributed = sum([user_points.points for user_points in session.exec(session_points_query).all()])
+
+    total_points_distributed = sum(
+        [user_points.points for user_points in session.exec(session_points_query).all()]
+    )
 
     if total_points_distributed >= reward_session_config.max_points:
-        logger.info("Maximum points for Session 1 have been distributed.")
+        logger.info(f"Maximum points for {reward_session.session_name} have been distributed.")
         return
+
+    # get all points mutiplier config and make a dictionary with vault_id as key
+    multiplier_config_query = select(PointsMultiplierConfig)
+    multiplier_configs = session.exec(multiplier_config_query).all()
+    multiplier_config_dict = {}
+    for multiplier_config in multiplier_configs:
+        multiplier_config_dict[multiplier_config.vault_id] = (
+            multiplier_config.multiplier
+        )
 
     # Fetch active user portfolios
     active_portfolios_query = select(UserPortfolio).where(
@@ -71,23 +85,11 @@ def harmonix_distribute_points():
     active_portfolios = session.exec(active_portfolios_query).all()
     active_portfolios.sort(key=lambda x: x.trade_start_date)
     for portfolio in active_portfolios:
-        vault_query = select(Vault).where(Vault.id == portfolio.vault_id)
-        vault = session.exec(vault_query).first()
-
-        if not vault:
+        if portfolio.vault_id not in multiplier_config_dict:
             continue
+        multiplier = multiplier_config_dict[portfolio.vault_id]
 
-        # Get the multiplier for the vault category
-        multiplier_query = select(PointsMultiplierConfig).where(
-            PointsMultiplierConfig.vault_id == vault.id
-        )
-        multiplier_config = session.exec(multiplier_query).first()
-
-        if not multiplier_config:
-            continue
-        multiplier = multiplier_config.multiplier
-
-        #get user points distributed for the user by wallet_address
+        # get user points distributed for the user by wallet_address
         user_points_query = (
             select(UserPoints)
             .where(UserPoints.wallet_address == portfolio.user_address)
@@ -96,11 +98,15 @@ def harmonix_distribute_points():
             .where(UserPoints.vault_id == portfolio.vault_id)
         )
         user_points = session.exec(user_points_query).first()
-        #if  user points is none then insert user points
+        # if  user points is none then insert user points
         if not user_points:
             # Calculate points to be distributed
             duration_hours = (
-                current_time - max(session_start_date.replace(tzinfo=timezone.utc), portfolio.trade_start_date.replace(tzinfo=timezone.utc))
+                current_time
+                - max(
+                    session_start_date.replace(tzinfo=timezone.utc),
+                    portfolio.trade_start_date.replace(tzinfo=timezone.utc),
+                )
             ).total_seconds() / 3600
             points = (portfolio.total_balance / 100) * duration_hours * multiplier
 
@@ -134,7 +140,7 @@ def harmonix_distribute_points():
                 session.commit()
                 break
         else:
-            #get last user points history
+            # get last user points history
             user_points_history_query = (
                 select(UserPointsHistory)
                 .where(UserPointsHistory.user_points_id == user_points.id)
@@ -143,7 +149,8 @@ def harmonix_distribute_points():
             user_points_history = session.exec(user_points_history_query).first()
             # Calculate points to be distributed
             duration_hours = (
-                current_time - user_points_history.created_at.replace(tzinfo=timezone.utc)
+                current_time
+                - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
             points = (portfolio.total_balance / 100) * duration_hours * multiplier
             # Check if the total points exceed the maximum allowed
@@ -168,6 +175,9 @@ def harmonix_distribute_points():
                 reward_session.end_date = current_time
                 session.commit()
                 break
+    reward_session.points_distributed = total_points_distributed
+    reward_session.update_date = current_time
+    session.commit()
     logger.info("Points distribution job completed.")
 
 
