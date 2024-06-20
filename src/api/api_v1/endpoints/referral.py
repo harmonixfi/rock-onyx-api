@@ -115,13 +115,23 @@ async def get_points(session: SessionDep, wallet_address: str):
         return []
 
     points: List[schemas.Points] = []
-    for user_point in user_points:
-        point = schemas.Points(
-            points=user_point.UserPoints.points,
-            start_date=user_point.RewardSessions.start_date,
-            end_date=user_point.RewardSessions.end_date,
-            session_name=user_point.RewardSessions.session_name,
-            partner_name=user_point.RewardSessions.partner_name,
-        )
+
+    # we need to group the user_points by session id and sum the points
+    # for each session
+    session_points = {}
+
+    for user_point, session in user_points:
+        if user_point.session_id not in session_points:
+            session_points[user_point.session_id] = schemas.Points(
+                points=0,
+                start_date=session.start_date,
+                end_date=session.end_date,
+                session_name=session.session_name,
+                partner_name=session.partner_name,
+            )
+        session_points[user_point.session_id].points += user_point.points
+
+    for _, point in session_points.items():
         points.append(point)
+
     return points
