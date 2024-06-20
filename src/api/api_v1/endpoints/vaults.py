@@ -48,7 +48,14 @@ def get_vault_earned_point_by_partner(
 
 
 def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
-    partners = json.loads(vault.routes) + [constants.EIGENLAYER, constants.HARMONIX]
+    routes = (
+        json.loads(vault.routes) + [constants.EIGENLAYER]
+        if vault.routes is not None
+        else []
+    )
+    partners = routes + [
+        constants.HARMONIX,
+    ]
 
     earned_points = []
     for partner in partners:
@@ -93,8 +100,7 @@ async def get_all_vaults(
     data = []
     for vault in vaults:
         schema_vault = _update_vault_apy(vault)
-        if vault.category == VaultCategory.points:
-            schema_vault.points = get_earned_points(session, vault)
+        schema_vault.points = get_earned_points(session, vault)
         data.append(schema_vault)
     return data
 
@@ -110,8 +116,7 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
         )
 
     schema_vault = _update_vault_apy(vault)
-    if vault.category == VaultCategory.points:
-        schema_vault.points = get_earned_points(session, vault)
+    schema_vault.points = get_earned_points(session, vault)
     return schema_vault
 
 
