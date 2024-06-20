@@ -1,25 +1,15 @@
-import json
 from typing import List
-import uuid
-import datetime
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import distinct, func
 from sqlmodel import select
-import models
-from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
 from models.reward_sessions import RewardSessions
 from models.user import User
 from models.user_portfolio import UserPortfolio
-from models.vault_performance import VaultPerformance
 from models.rewards import Reward
 from models.user_points import UserPoints
 import schemas
-import pandas as pd
 from api.api_v1.deps import SessionDep
-from models import Vault
-from core.config import settings
 from core import constants
 from utils.api import (
     create_user_with_referral,
@@ -93,6 +83,7 @@ async def get_rewards(session: SessionDep, wallet_address: str):
     rewards = session.exec(statement).first()
     if not rewards:
         rewards = Reward(reward_percentage=0)
+
     return {
         "reward_percentage": 0.05,
         "depositors": total_referees,
