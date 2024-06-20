@@ -76,7 +76,7 @@ async def get_rewards(session: SessionDep, wallet_address: str):
             UserPortfolio.user_address == depositor.wallet_address
         )
         portfolios = session.exec(statement).first()
-        if portfolios and portfolios.total_balance > 50:
+        if portfolios and portfolios.total_balance >= 50:
             high_balance_depositors += 1
 
     statement = select(Reward).where(Reward.user_id == user.user_id)
