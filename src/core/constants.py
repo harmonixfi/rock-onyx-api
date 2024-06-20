@@ -4,6 +4,7 @@ RENZO = "renzo"
 ZIRCUIT = "zircuit"
 KELPDAO = "kelpdao"
 EIGENLAYER = "eigenlayer"
+HARMONIX = "Harmonix"
 
 
 OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"

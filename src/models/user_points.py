@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlmodel import SQLModel, Field
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
@@ -13,7 +14,7 @@ class UserPoints(SQLModel, table=True):
     partner_name: str = Field(index=True)
     created_at: datetime = Field(default=datetime.now(timezone.utc), index=True)
     updated_at: datetime = Field(default=datetime.now(timezone.utc), index=True)
-
+    session_id: Optional[UUID] = Field(foreign_key="reward_sessions.session_id")
 
 class UserPointAudit(SQLModel, table=True):
     __tablename__ = "user_point_audit"

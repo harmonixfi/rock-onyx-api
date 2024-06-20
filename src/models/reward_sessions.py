@@ -9,5 +9,6 @@ class RewardSessions(SQLModel, table=True):
     session_id: UUID = Field(default_factory=uuid4, primary_key=True)
     session_name: str = Field(index=True)
     start_date: datetime = Field(default=datetime.now(timezone.utc))
+    update_date: Optional[datetime] = Field(default=None)
     end_date: Optional[datetime] = Field(default=None)
     partner_name : str

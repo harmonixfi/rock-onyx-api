@@ -6,6 +6,7 @@
     "configurations": [
 
 
+
         {
             "name": "Python: Update Weekly Performance",
             "type": "debugpy",
@@ -79,6 +80,14 @@
             "module": "bg_tasks.fix_user_position_from_onchain",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
-        }
+        },
+        {
+            "name": "Python: points_distribution_job_harmonix",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.points_distribution_job_harmonix",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
