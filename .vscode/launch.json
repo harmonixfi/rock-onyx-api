@@ -89,5 +89,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Python: migrate referral data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.migrate_existing_user_for_referral_system",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

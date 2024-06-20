@@ -48,7 +48,7 @@ def get_vault_earned_point_by_partner(
 
 
 def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
-    partners = json.loads(vault.routes) + [constants.EIGENLAYER]
+    partners = json.loads(vault.routes) + [constants.EIGENLAYER, constants.HARMONIX]
 
     earned_points = []
     for partner in partners:
