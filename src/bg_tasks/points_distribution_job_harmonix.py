@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from uuid import UUID
 from log import setup_logging_to_file
+from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
@@ -44,7 +45,10 @@ def harmonix_distribute_points():
         logger.info("No reward session config found for Harmonix.")
         return
     session_start_date = reward_session.start_date.replace(tzinfo=timezone.utc)
-    session_end_date = (reward_session.start_date + timedelta(days=reward_session_config.start_delay_days)).replace(tzinfo=timezone.utc)
+    session_end_date = (
+        reward_session.start_date
+        + timedelta(days=reward_session_config.start_delay_days)
+    ).replace(tzinfo=timezone.utc)
     if session_end_date < current_time:
         reward_session.end_date = current_time
         session.commit()
@@ -54,19 +58,29 @@ def harmonix_distribute_points():
     if current_time < session_start_date:
         logger.info(f"{reward_session.session_name} has not started yet.")
         return
-
-    session_points_query = (
-        select(UserPoints)
-        .where(UserPoints.partner_name == constants.HARMONIX)
-        .where(UserPoints.created_at >= session_start_date)
-    )
-
-    total_points_distributed = sum(
-        [user_points.points for user_points in session.exec(session_points_query).all()]
-    )
+    total_points_distributed = 0
+    if (
+        reward_session.points_distributed is not None
+        and reward_session.points_distributed > 0
+    ):
+        total_points_distributed = reward_session.points_distributed
+    else:
+        session_points_query = (
+            select(UserPoints)
+            .where(UserPoints.partner_name == constants.HARMONIX)
+            .where(UserPoints.created_at >= session_start_date)
+        )
+        total_points_distributed = sum(
+            [
+                user_points.points
+                for user_points in session.exec(session_points_query).all()
+            ]
+        )
 
     if total_points_distributed >= reward_session_config.max_points:
-        logger.info(f"Maximum points for {reward_session.session_name} have been distributed.")
+        logger.info(
+            f"Maximum points for {reward_session.session_name} have been distributed."
+        )
         return
 
     # get all points mutiplier config and make a dictionary with vault_id as key
@@ -180,6 +194,47 @@ def harmonix_distribute_points():
     session.commit()
     logger.info("Points distribution job completed.")
 
+    #get list of all active vaults
+    update_vault_points(current_time)
+
+def update_vault_points(current_time):
+    active_vaults_query = select(Vault).where(Vault.is_active == True)
+    active_vaults = session.exec(active_vaults_query).all()
+
+    for vault in active_vaults:
+        # get all earned points for the vault
+        earned_points_query = (
+            select(UserPoints)
+            .where(UserPoints.vault_id == vault.id)
+            .where(UserPoints.partner_name == constants.HARMONIX)
+        )
+        earned_points = session.exec(earned_points_query).all()
+        total_points = sum([point.points for point in earned_points])
+        logger.info(
+            f"Vault {vault.name} has earned {total_points} points from Harmonix."
+        )
+        # get last point distribution history. if not found then create new entry
+        point_dist_hist_query = (
+            select(PointDistributionHistory)
+            .where(PointDistributionHistory.vault_id == vault.id)
+            .where(PointDistributionHistory.partner_name == constants.HARMONIX)
+            .order_by(PointDistributionHistory.created_at.desc())
+        )
+        point_dist_hist = session.exec(point_dist_hist_query).first()
+        if not point_dist_hist:
+            point_dist_hist = PointDistributionHistory(
+                vault_id=vault.id,
+                partner_name=constants.HARMONIX,
+                point=total_points,
+                created_at=current_time,
+            )
+            session.add(point_dist_hist)
+            session.commit()
+        else:
+            point_dist_hist.point = total_points
+            point_dist_hist.created_at = current_time
+            session.commit()
+    logger.info("Points distribution history updated.")
 
 if __name__ == "__main__":
     harmonix_distribute_points()
