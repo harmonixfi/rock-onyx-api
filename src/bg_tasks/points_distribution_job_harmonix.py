@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-def harmonix_distribute_points():
-    current_time = datetime.now(tz=timezone.utc)
+def harmonix_distribute_points(current_time):
     # get reward session with end_date = null, and partner_name = Harmonix
     reward_session_query = (
         select(RewardSessions)
@@ -46,8 +45,8 @@ def harmonix_distribute_points():
         return
     session_start_date = reward_session.start_date.replace(tzinfo=timezone.utc)
     session_end_date = (
-        reward_session.start_date
-        + timedelta(days=reward_session_config.start_delay_days)
+        session_start_date
+        + timedelta(minutes=reward_session_config.duration_in_minutes)
     ).replace(tzinfo=timezone.utc)
     if session_end_date < current_time:
         reward_session.end_date = current_time
@@ -194,8 +193,6 @@ def harmonix_distribute_points():
     session.commit()
     logger.info("Points distribution job completed.")
 
-    #get list of all active vaults
-    update_vault_points(current_time)
 
 def update_vault_points(current_time):
     active_vaults_query = select(Vault).where(Vault.is_active == True)
@@ -213,28 +210,19 @@ def update_vault_points(current_time):
         logger.info(
             f"Vault {vault.name} has earned {total_points} points from Harmonix."
         )
-        # get last point distribution history. if not found then create new entry
-        point_dist_hist_query = (
-            select(PointDistributionHistory)
-            .where(PointDistributionHistory.vault_id == vault.id)
-            .where(PointDistributionHistory.partner_name == constants.HARMONIX)
-            .order_by(PointDistributionHistory.created_at.desc())
+        #insert points distribution history
+        point_distribution_history = PointDistributionHistory(
+            vault_id=vault.id,
+            partner_name=constants.HARMONIX,
+            point=total_points,
+            created_at=current_time,
         )
-        point_dist_hist = session.exec(point_dist_hist_query).first()
-        if not point_dist_hist:
-            point_dist_hist = PointDistributionHistory(
-                vault_id=vault.id,
-                partner_name=constants.HARMONIX,
-                point=total_points,
-                created_at=current_time,
-            )
-            session.add(point_dist_hist)
-            session.commit()
-        else:
-            point_dist_hist.point = total_points
-            point_dist_hist.created_at = current_time
-            session.commit()
+        session.add(point_distribution_history)
+        session.commit()
     logger.info("Points distribution history updated.")
 
+
 if __name__ == "__main__":
-    harmonix_distribute_points()
+    current_time = datetime.now(tz=timezone.utc)
+    harmonix_distribute_points(current_time)
+    update_vault_points(current_time)
