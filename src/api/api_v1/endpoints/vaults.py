@@ -147,16 +147,18 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_1m"]
-        pps_history_df = pps_history_df[["date", "apy"]].copy()
-        
-        # resample pps_history_df to daily frequency
-        pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-        pps_history_df.set_index("date", inplace=True)
-        pps_history_df = pps_history_df.resample("D").mean()
-        pps_history_df.ffill(inplace=True)
 
-        # calculate ma 7 days pps_history_df['apy']
-        pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
+        if vault.network_chain == NetworkChain.arbitrum_one:
+            pps_history_df = pps_history_df[["date", "apy"]].copy()
+
+            # resample pps_history_df to daily frequency
+            pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+            pps_history_df.set_index("date", inplace=True)
+            pps_history_df = pps_history_df.resample("D").mean()
+            pps_history_df.ffill(inplace=True)
+
+            # calculate ma 7 days pps_history_df['apy']
+            pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 
