@@ -204,6 +204,18 @@ def calculate_performance(
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
+    # query last 7 days VaultPerformance
+    last_6_days = session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id == vault_id)
+        .order_by(VaultPerformance.datetime.desc())
+        .limit(6)
+    ).all()
+
+    # calculate average 7 days apy_1m included today
+    apy_1m = (apy_1m + sum([rec.apy_1m for rec in last_6_days])) / (len(last_6_days) + 1)
+    apy_1w = (apy_1w + sum([rec.apy_1w for rec in last_6_days])) / (len(last_6_days) + 1)
+
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault_id
     )
