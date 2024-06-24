@@ -16,6 +16,7 @@ from utils.api import (
     get_user_by_wallet_address,
     is_valid_wallet_address,
 )
+from utils.json_encoder import custom_encoder
 
 router = APIRouter()
 
@@ -124,8 +125,8 @@ async def get_points(session: SessionDep, wallet_address: str):
         if user_point.session_id not in session_points:
             session_points[user_point.session_id] = schemas.Points(
                 points=0,
-                start_date=session.start_date,
-                end_date=session.end_date,
+                start_date=custom_encoder(session.start_date),
+                end_date=custom_encoder(session.end_date),
                 session_name=session.session_name,
                 partner_name=session.partner_name,
             )

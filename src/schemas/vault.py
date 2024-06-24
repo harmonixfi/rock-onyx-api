@@ -3,6 +3,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
+from models.point_distribution_history import PointDistributionHistory
 from models.vaults import NetworkChain, VaultCategory
 
 from .earned_point import EarnedPoints
@@ -11,7 +12,7 @@ from .earned_point import EarnedPoints
 class VaultBase(BaseModel):
     id: uuid.UUID
     name: str
-    apr: float = None
+    apr: float | None = None
     contract_address: str | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
@@ -24,7 +25,6 @@ class VaultBase(BaseModel):
     category: VaultCategory | None = None
     network_chain: NetworkChain | None = None
     strategy_name: str | None = None
-
     points: List[EarnedPoints] = []
 
 
