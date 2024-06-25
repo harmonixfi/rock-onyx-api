@@ -33,16 +33,6 @@ from utils.calculate_price import calculate_avg_entry_price
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
-REGISTERED_TOPICS = [
-    settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS,
-    settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS,
-    settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS,
-    settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC,
-    settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC,
-    settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC,
-]
-
 chain_name = None
 
 
@@ -143,6 +133,11 @@ def handle_withdrawn_event(
 ):
     if user_portfolio is not None:
         user_portfolio.total_balance -= value
+
+        # Update the pending_withdrawal, we don't allow user to withdraw more or less than pending_withdrawal
+        user_portfolio.pending_withdrawal = 0
+        user_portfolio.initiated_withdrawal_at = None
+
         if user_portfolio.total_balance <= 0:
             user_portfolio.status = PositionStatus.CLOSED
             user_portfolio.trade_end_date = datetime.now(timezone.utc)
@@ -338,7 +333,8 @@ async def run(network: str):
         connection_url = settings.ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL
     elif network_chain == NetworkChain.ethereum:
         connection_url = settings.ETHER_MAINNET_INFURA_WEBSOCKER_URL
-
+    elif network_chain == NetworkChain.base:
+        connection_url = settings.BASE_MAINNET_WSS_NETWORK_RPC
     else:
         raise ValueError(f"Unsupported network: {network}")
 

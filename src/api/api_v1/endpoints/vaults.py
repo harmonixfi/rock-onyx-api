@@ -148,7 +148,7 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_1m"]
 
-        if vault.network_chain == NetworkChain.arbitrum_one:
+        if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
             pps_history_df = pps_history_df[["date", "apy"]].copy()
 
             # resample pps_history_df to daily frequency
