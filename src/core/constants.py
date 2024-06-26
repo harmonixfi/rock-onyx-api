@@ -5,6 +5,7 @@ ZIRCUIT = "zircuit"
 KELPDAO = "kelpdao"
 EIGENLAYER = "eigenlayer"
 HARMONIX = "Harmonix"
+BSX = "bsx"
 
 
 OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"

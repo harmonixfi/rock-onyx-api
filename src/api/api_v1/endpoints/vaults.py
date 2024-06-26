@@ -57,6 +57,9 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
         constants.HARMONIX,
     ]
 
+    if vault.network_chain == NetworkChain.base:
+        partners.append(constants.BSX)
+
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
