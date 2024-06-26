@@ -1,22 +1,11 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
-from uuid import UUID
-from log import setup_logging_to_file
-from models.point_distribution_history import PointDistributionHistory
-from models.points_multiplier_config import PointsMultiplierConfig
 from models.referrals import Referral
-from models.reward_session_config import RewardSessionConfig
-from models.reward_sessions import RewardSessions
 from models.rewards import Reward
 from models.user import User
-from models.user_points import UserPoints
-from models.user_points_history import UserPointsHistory
-from models.user_portfolio import PositionStatus, UserPortfolio
-from models.vaults import Vault
+from models.user_portfolio import UserPortfolio
 from core.db import engine
-from core.config import settings
-from core import constants
 from sqlmodel import Session, select
 
 REWARD_HIGH_PERCENTAGE = 8.0

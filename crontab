@@ -5,3 +5,4 @@
 0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle > /app-logs/update_usdce_usdc_price_feed_oracle.log
 0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation > /app-logs/restaking_point_calculation.log
 0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix > /app-logs/points_distribution_job_harmonix.log
+0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job > /app-logs/reward_distribution_job.log
