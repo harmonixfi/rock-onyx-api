@@ -86,7 +86,7 @@ async def get_rewards(session: SessionDep, wallet_address: str):
         rewards = Reward(reward_percentage=0)
 
     return {
-        "reward_percentage": 0.05,
+        "reward_percentage": rewards.reward_percentage,
         "depositors": total_referees,
         "high_balance_depositors": high_balance_depositors,
     }

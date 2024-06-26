@@ -97,5 +97,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Python: reward_distribution_job",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.reward_distribution_job",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

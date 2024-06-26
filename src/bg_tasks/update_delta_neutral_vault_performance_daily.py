@@ -315,7 +315,9 @@ def main(chain: str):
                 vault_contract,
                 vault.owner_wallet_address,
                 update_freq=(
-                    "daily" if network_chain == NetworkChain.arbitrum_one else "weekly"
+                    "daily"
+                    if network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}
+                    else "weekly"
                 ),
             )
             # Add the new performance record to the session and commit
