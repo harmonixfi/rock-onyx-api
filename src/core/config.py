@@ -41,10 +41,16 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     PROJECT_NAME: str
+    
     ETHER_MAINNET_INFURA_URL: str | None = None
     ETHER_MAINNET_INFURA_WEBSOCKER_URL: str | None = None
+    
+    BASE_MAINNET_NETWORK_RPC: str
+    BASE_MAINNET_WSS_NETWORK_RPC: str
+    
     ARBITRUM_MAINNET_INFURA_URL: str
     ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str
+    
     SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str
     SEPOLIA_TESTNET_INFURA_URL: str
 

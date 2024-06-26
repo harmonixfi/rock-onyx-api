@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import click
 import pandas as pd
@@ -158,7 +158,10 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 # Step 4: Calculate Performance Metrics
 def calculate_performance(
-    vault_id: uuid.UUID, vault_contract: Contract, owner_address: str
+    vault_id: uuid.UUID,
+    vault_contract: Contract,
+    owner_address: str,
+    update_freq: str = "daily",
 ):
     current_price = get_price("ETHUSDT")
 
@@ -204,12 +207,53 @@ def calculate_performance(
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
 
+    # query last 7 days VaultPerformance
+    if update_freq == "daily":
+        last_7_day = datetime.now(timezone.utc) - timedelta(days=6)
+
+        last_6_days = session.exec(
+            select(VaultPerformance)
+            .where(VaultPerformance.vault_id == vault_id)
+            .where(VaultPerformance.datetime >= last_7_day)
+            .order_by(VaultPerformance.datetime.desc())
+        ).all()
+
+        # convert last 6 days apy to dataframe
+        last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
+        last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
+
+        # append latest apy
+        new_row = pd.DataFrame(
+            [
+                {
+                    "datetime": today,
+                    "apy_1m": apy_1m,
+                    "apy_1w": apy_1w,
+                }
+            ]
+        )
+        new_row["datetime"] = pd.to_datetime(new_row["datetime"])
+        last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
+
+        # resample last_6_days_df to daily frequency
+        last_6_days_df["datetime"] = pd.to_datetime(last_6_days_df["datetime"])
+        last_6_days_df.set_index("datetime", inplace=True)
+        last_6_days_df = last_6_days_df.resample("D").mean()
+
+        # calculate average 7 days apy_1m included today
+        apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
+        apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
+
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault_id
     )
 
     # count all portfolio of vault
-    statement = select(func.count()).select_from(UserPortfolio).where(UserPortfolio.vault_id == vault_id)
+    statement = (
+        select(func.count())
+        .select_from(UserPortfolio)
+        .where(UserPortfolio.vault_id == vault_id)
+    )
     count = session.scalar(statement)
 
     # Create a new VaultPerformance object
@@ -267,7 +311,14 @@ def main(chain: str):
             vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
-                vault.id, vault_contract, vault.owner_wallet_address
+                vault.id,
+                vault_contract,
+                vault.owner_wallet_address,
+                update_freq=(
+                    "daily"
+                    if network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}
+                    else "weekly"
+                ),
             )
             # Add the new performance record to the session and commit
             session.add(new_performance_rec)
