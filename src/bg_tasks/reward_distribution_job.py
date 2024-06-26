@@ -19,11 +19,6 @@ from core.config import settings
 from core import constants
 from sqlmodel import Session, select
 
-REWARD_HIGH_PERCENTAGE = 8.0
-REWARD_DEFAULT_PERCENTAGE = 5.0
-REWARD_HIGH_LIMIT = 101
-MIN_FUNDS_FOR_HIGH_REWARD = 50.0
-HIGH_REWARD_DURATION_DAYS = 90
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,7 +34,7 @@ def reward_distribution_job():
         referrals = session.exec(referrals_query).all()
         unique_referrers = []
         for referral in referrals:
-            if len(unique_referrers) >= REWARD_HIGH_LIMIT:
+            if len(unique_referrers) >= constants.REWARD_HIGH_LIMIT:
                 break
             if referral.referrer_id in unique_referrers:
                 continue
@@ -49,7 +44,7 @@ def reward_distribution_job():
                 if reward.end_date is None:
                     continue
                 if reward.end_date.replace(tzinfo=timezone.utc) < current_time:
-                    reward.reward_percentage = REWARD_DEFAULT_PERCENTAGE
+                    reward.reward_percentage = constants.REWARD_DEFAULT_PERCENTAGE
                     session.commit()
                 unique_referrers.append(referral.referrer_id)
                 continue
@@ -64,20 +59,20 @@ def reward_distribution_job():
                 user_portfolio = session.exec(user_portfolio_query).first()
                 if not user_portfolio:
                     continue
-                if user_portfolio.total_balance >= MIN_FUNDS_FOR_HIGH_REWARD:
+                if user_portfolio.total_balance >= constants.MIN_FUNDS_FOR_HIGH_REWARD:
                     reward_percentage = Reward(
                         user_id=referral.referrer_id,
                         referral_code_id=referral.referral_code_id,
-                        reward_percentage=REWARD_HIGH_PERCENTAGE,
+                        reward_percentage=constants.REWARD_HIGH_PERCENTAGE,
                         start_date=current_time,
                         end_date=current_time
-                        + timedelta(days=HIGH_REWARD_DURATION_DAYS),
+                        + timedelta(days=constants.HIGH_REWARD_DURATION_DAYS),
                     )
                     session.add(reward_percentage)
                     session.commit()
                     unique_referrers.append(referral.referrer_id)
                     logger.info(
-                        f"High reward percentage {REWARD_HIGH_PERCENTAGE}% for referrer {referral.referrer_id}"
+                        f"High reward percentage {constants.REWARD_HIGH_PERCENTAGE}% for referrer {referral.referrer_id}"
                     )
         logger.info("Reward distribution job completed.")
 
