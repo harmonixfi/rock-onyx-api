@@ -181,7 +181,9 @@ def calculate_performance(
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
-    days = min((pendulum.now(tz=pendulum.UTC) - month_ago_datetime).days, 30)
+
+    time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
+    days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
@@ -190,7 +192,8 @@ def calculate_performance(
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
-    days = min((pendulum.now(tz=pendulum.UTC) - week_ago_datetime).days, 7)
+    time_diff = (pendulum.now(tz=pendulum.UTC) - week_ago_datetime)
+    days = min(time_diff.days, 7) if time_diff.days > 0 else time_diff.hours / 24
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share.price_per_share, days=days
     )
@@ -240,9 +243,10 @@ def calculate_performance(
         last_6_days_df.set_index("datetime", inplace=True)
         last_6_days_df = last_6_days_df.resample("D").mean()
 
-        # calculate average 7 days apy_1m included today
-        apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
-        apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
+        if len(last_6_days_df) >= 7:
+            # calculate average 7 days apy_1m included today
+            apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
+            apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault_id

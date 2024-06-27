@@ -160,8 +160,9 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
             pps_history_df = pps_history_df.resample("D").mean()
             pps_history_df.ffill(inplace=True)
 
-            # calculate ma 7 days pps_history_df['apy']
-            pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
+            if len(pps_history_df) >= 7 * 2:  # we will make sure the normalized series enough to plot
+                # calculate ma 7 days pps_history_df['apy']
+                pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 
