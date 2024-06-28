@@ -1,3 +1,4 @@
+from enum import Enum
 from core.config import settings
 
 RENZO = "renzo"
@@ -26,3 +27,7 @@ NETWORK_SOCKET_URLS = {
     "ethereum": settings.ETHER_MAINNET_INFURA_URL,
     "base": settings.BASE_MAINNET_WSS_NETWORK_RPC,
 }
+
+class Status(str, Enum):
+    ACTIVE = "active"
+    CLOSED = "closed"

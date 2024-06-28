@@ -88,16 +88,12 @@ async def get_rewards(session: SessionDep, wallet_address: str):
                 high_balance_depositors += 1
                 break
 
-    statement = select(Reward).where(Reward.user_id == user.user_id)
+    statement = (
+        select(Reward)
+        .where(Reward.user_id == user.user_id)
+        .where(Reward.status == constants.Status.ACTIVE)
+    )
     rewards = session.exec(statement).first()
-    if not rewards:
-        return {
-        "reward_percentage": constants.REWARD_DEFAULT_PERCENTAGE,
-        "depositors": total_referees,
-        "high_balance_depositors": high_balance_depositors,
-    }
-
-
     return {
         "reward_percentage": rewards.reward_percentage,
         "depositors": total_referees,
