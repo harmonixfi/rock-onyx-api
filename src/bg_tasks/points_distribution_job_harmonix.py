@@ -1,12 +1,17 @@
 import logging
 from datetime import datetime, timedelta, timezone
+import uuid
 from sqlmodel import Session, select
 from uuid import UUID
 from log import setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
+from models.referral_points import ReferralPoints
+from models.referral_points_history import ReferralPointsHistory
+from models.referrals import Referral
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
+from models.user import User
 from models.user_points import UserPoints
 from models.user_points_history import UserPointsHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
@@ -192,6 +197,87 @@ def harmonix_distribute_points(current_time):
     reward_session.update_date = current_time
     session.commit()
     logger.info("Points distribution job completed.")
+    update_referral_points(
+        current_time, reward_session, reward_session_config, total_points_distributed
+    )
+
+
+def update_referral_points(
+    current_time, reward_session, reward_session_config, total_points_distributed
+):
+    referrals_query = select(Referral).order_by(Referral.referrer_id)
+    referrals = session.exec(referrals_query).all()
+    referrals_copy = referrals.copy()
+    unique_referrers = []
+    for referral in referrals_copy:
+        if referral.referrer_id not in unique_referrers:
+            unique_referrers.append(referral.referrer_id)
+
+    for referrer_id in unique_referrers:
+        referrer_referrals = [
+            referral for referral in referrals if referral.referrer_id == referrer_id
+        ]
+        referral_points = 0
+        for referral in referrer_referrals:
+            # get user
+            user_query = select(User).where(User.user_id == referral.referee_id)
+            user = session.exec(user_query).first()
+            if not user:
+                continue
+            # get user points
+            user_points_query = (
+                select(UserPoints)
+                .where(UserPoints.wallet_address == user.wallet_address)
+                .where(UserPoints.partner_name == constants.HARMONIX)
+                .where(UserPoints.session_id == reward_session.session_id)
+            )
+            user_points = session.exec(user_points_query).first()
+            if not user_points:
+                continue
+            referral_points += user_points.points
+        referral_points = referral_points * constants.REFERRAL_POINTS_PERCENTAGE
+        if (
+            total_points_distributed + referral_points
+            > reward_session_config.max_points
+        ):
+            referral_points = (
+                reward_session_config.max_points - total_points_distributed
+            )
+
+        referral_points_query = select(ReferralPoints).where(
+            ReferralPoints.user_id == referrer_id
+        )
+
+        user_referral_points = session.exec(referral_points_query).first()
+        if not user_referral_points:
+            user_referral_points = ReferralPoints(
+                id=uuid.uuid4(),
+                user_id=referrer_id,
+                points=referral_points,
+                created_at=current_time,
+                updated_at=current_time,
+            )
+            session.add(user_referral_points)
+        else:
+            user_referral_points.points = referral_points
+            user_referral_points.updated_at = current_time
+
+        referral_points_history = ReferralPointsHistory(
+            referral_points_id=user_referral_points.id,
+            point=referral_points,
+            created_at=current_time,
+        )
+        session.add(referral_points_history)
+        session.commit()
+        total_points_distributed += referral_points
+        if total_points_distributed >= reward_session_config.max_points:
+            reward_session.end_date = current_time
+            session.commit()
+            break
+    reward_session.points_distributed = total_points_distributed
+    reward_session.update_date = current_time
+    session.commit()
+    logger.info("Referral Points distribution job completed.")
 
 
 def update_vault_points(current_time):
@@ -210,7 +296,7 @@ def update_vault_points(current_time):
         logger.info(
             f"Vault {vault.name} has earned {total_points} points from Harmonix."
         )
-        #insert points distribution history
+        # insert points distribution history
         point_distribution_history = PointDistributionHistory(
             vault_id=vault.id,
             partner_name=constants.HARMONIX,
