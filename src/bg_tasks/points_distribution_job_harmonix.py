@@ -217,39 +217,48 @@ def update_referral_points(
         referrer_referrals = [
             referral for referral in referrals if referral.referrer_id == referrer_id
         ]
-        referral_points = 0
-        for referral in referrer_referrals:
-            # get user
-            user_query = select(User).where(User.user_id == referral.referee_id)
-            user = session.exec(user_query).first()
-            if not user:
-                continue
-            # get user points
-            user_points_query = (
-                select(UserPoints)
-                .where(UserPoints.wallet_address == user.wallet_address)
-                .where(UserPoints.partner_name == constants.HARMONIX)
-                .where(UserPoints.session_id == reward_session.session_id)
-            )
-            user_points = session.exec(user_points_query).first()
-            if not user_points:
-                continue
-            referral_points += user_points.points
-        referral_points = referral_points * constants.REFERRAL_POINTS_PERCENTAGE
-        if (
-            total_points_distributed + referral_points
-            > reward_session_config.max_points
-        ):
-            referral_points = (
-                reward_session_config.max_points - total_points_distributed
-            )
-
         referral_points_query = select(ReferralPoints).where(
             ReferralPoints.user_id == referrer_id
         )
-
         user_referral_points = session.exec(referral_points_query).first()
-        if not user_referral_points:
+        if user_referral_points:
+            referral_points = 0
+            for referral in referrer_referrals:
+                user_points = get_user_points_by_referee_id(referral, reward_session, session)
+                if not user_points:
+                    continue
+                #get points from points_history
+                user_points_history_query = (
+                    select(UserPointsHistory)
+                    .where(UserPointsHistory.user_points_id == user_points.id)
+                    .order_by(UserPointsHistory.created_at.desc())
+                )
+                user_points_history = session.exec(user_points_history_query).first()
+                referral_points += user_points_history.point
+            referral_points = calculate_referral_points(reward_session_config, total_points_distributed, referral_points)
+            user_referral_points.points += referral_points
+            user_referral_points.updated_at = current_time
+            referral_points_history = ReferralPointsHistory(
+                referral_points_id=user_referral_points.id,
+                point=referral_points,
+                created_at=current_time,
+            )
+            session.add(referral_points_history)
+            session.commit()
+            total_points_distributed += referral_points
+            if total_points_distributed >= reward_session_config.max_points:
+                reward_session.end_date = current_time
+                session.commit()
+                break
+        else:
+            referral_points = 0
+            for referral in referrer_referrals:
+                user_points = get_user_points_by_referee_id(referral, reward_session, session)
+                if not user_points:
+                    continue
+                referral_points += user_points.points
+            referral_points = calculate_referral_points(reward_session_config, total_points_distributed, referral_points)
+
             user_referral_points = ReferralPoints(
                 id=uuid.uuid4(),
                 user_id=referrer_id,
@@ -258,26 +267,48 @@ def update_referral_points(
                 updated_at=current_time,
             )
             session.add(user_referral_points)
-        else:
-            user_referral_points.points = referral_points
-            user_referral_points.updated_at = current_time
-
-        referral_points_history = ReferralPointsHistory(
-            referral_points_id=user_referral_points.id,
-            point=referral_points,
-            created_at=current_time,
-        )
-        session.add(referral_points_history)
-        session.commit()
-        total_points_distributed += referral_points
-        if total_points_distributed >= reward_session_config.max_points:
-            reward_session.end_date = current_time
+            referral_points_history = ReferralPointsHistory(
+                referral_points_id=user_referral_points.id,
+                point=referral_points,
+                created_at=current_time,
+            )
+            session.add(referral_points_history)
             session.commit()
-            break
-    reward_session.points_distributed = total_points_distributed
-    reward_session.update_date = current_time
+            total_points_distributed += referral_points
+            if total_points_distributed >= reward_session_config.max_points:
+                reward_session.end_date = current_time
+                session.commit()
+                break
+
     session.commit()
     logger.info("Referral Points distribution job completed.")
+
+def calculate_referral_points(reward_session_config, total_points_distributed, referral_points):
+    referral_points = referral_points * constants.REFERRAL_POINTS_PERCENTAGE
+    if (
+                total_points_distributed + referral_points
+                > reward_session_config.max_points
+            ):
+        referral_points = (
+                    reward_session_config.max_points - total_points_distributed
+                )
+        
+    return referral_points
+
+
+def get_user_points_by_referee_id(referral, reward_session, session):
+    user_query = select(User).where(User.user_id == referral.referee_id)
+    user = session.exec(user_query).first()
+    if not user:
+        return None
+    user_points_query = (
+        select(UserPoints)
+        .where(UserPoints.wallet_address == user.wallet_address)
+        .where(UserPoints.partner_name == constants.HARMONIX)
+        .where(UserPoints.session_id == reward_session.session_id)
+    )
+    user_points = session.exec(user_points_query).first()
+    return user_points
 
 
 def update_vault_points(current_time):
