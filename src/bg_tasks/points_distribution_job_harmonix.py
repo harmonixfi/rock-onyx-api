@@ -224,10 +224,12 @@ def update_referral_points(
         if user_referral_points:
             referral_points = 0
             for referral in referrer_referrals:
-                user_points = get_user_points_by_referee_id(referral, reward_session, session)
+                user_points = get_user_points_by_referee_id(
+                    referral, reward_session, session
+                )
                 if not user_points:
                     continue
-                #get points from points_history
+                # get points from points_history
                 user_points_history_query = (
                     select(UserPointsHistory)
                     .where(UserPointsHistory.user_points_id == user_points.id)
@@ -235,7 +237,9 @@ def update_referral_points(
                 )
                 user_points_history = session.exec(user_points_history_query).first()
                 referral_points += user_points_history.point
-            referral_points = calculate_referral_points(reward_session_config, total_points_distributed, referral_points)
+            referral_points = calculate_referral_points(
+                reward_session_config, total_points_distributed, referral_points
+            )
             user_referral_points.points += referral_points
             user_referral_points.updated_at = current_time
             referral_points_history = ReferralPointsHistory(
@@ -253,11 +257,15 @@ def update_referral_points(
         else:
             referral_points = 0
             for referral in referrer_referrals:
-                user_points = get_user_points_by_referee_id(referral, reward_session, session)
+                user_points = get_user_points_by_referee_id(
+                    referral, reward_session, session
+                )
                 if not user_points:
                     continue
                 referral_points += user_points.points
-            referral_points = calculate_referral_points(reward_session_config, total_points_distributed, referral_points)
+            referral_points = calculate_referral_points(
+                reward_session_config, total_points_distributed, referral_points
+            )
 
             user_referral_points = ReferralPoints(
                 id=uuid.uuid4(),
@@ -283,16 +291,14 @@ def update_referral_points(
     session.commit()
     logger.info("Referral Points distribution job completed.")
 
-def calculate_referral_points(reward_session_config, total_points_distributed, referral_points):
+
+def calculate_referral_points(
+    reward_session_config, total_points_distributed, referral_points
+):
     referral_points = referral_points * constants.REFERRAL_POINTS_PERCENTAGE
-    if (
-                total_points_distributed + referral_points
-                > reward_session_config.max_points
-            ):
-        referral_points = (
-                    reward_session_config.max_points - total_points_distributed
-                )
-        
+    if total_points_distributed + referral_points > reward_session_config.max_points:
+        referral_points = reward_session_config.max_points - total_points_distributed
+
     return referral_points
 
 
